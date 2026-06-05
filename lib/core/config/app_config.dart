@@ -41,7 +41,7 @@ class ApiEnvironment {
     }
 
     return switch (current) {
-      AppEnvironment.local => 'https://localhost:7043',
+      AppEnvironment.local => 'http://localhost:5058',
       AppEnvironment.staging => 'https://staging.neostp.com',
       AppEnvironment.production => 'https://api.neostp.com',
     };
