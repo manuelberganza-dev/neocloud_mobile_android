@@ -7,6 +7,7 @@ import '../../../shared/widgets/metric_card.dart';
 import '../../../shared/widgets/neo_card.dart';
 import '../../../shared/widgets/neo_scaffold.dart';
 import '../../../shared/widgets/status_chip.dart';
+import '../../auth/auth_viewmodel.dart';
 import '../clients_viewmodel.dart';
 
 class ClientDetailScreen extends ConsumerWidget {
@@ -15,6 +16,8 @@ class ClientDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(clientsViewModelProvider);
+    final authState = ref.watch(authViewModelProvider);
+    final user = authState.hasValue ? authState.requireValue.user : null;
     final isTablet = MediaQuery.sizeOf(context).width >= 760;
 
     return NeoScaffold(
@@ -118,15 +121,21 @@ class ClientDetailScreen extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 12),
-          const NeoCard(
+          NeoCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SectionHeading('Datos basicos'),
-                _DataRow(label: 'Telefono', value: '+503 7000 1234'),
-                _DataRow(label: 'Correo', value: 'ventas@centro.com'),
-                _DataRow(label: 'Direccion', value: 'Av. Espana #123, SS'),
-                _DataRow(label: 'Vendedor', value: 'Maria Lopez'),
+                const _SectionHeading('Datos basicos'),
+                const _DataRow(label: 'Telefono', value: '+503 7000 1234'),
+                const _DataRow(label: 'Correo', value: 'ventas@centro.com'),
+                const _DataRow(
+                  label: 'Direccion',
+                  value: 'Av. Espana #123, SS',
+                ),
+                _DataRow(
+                  label: 'Vendedor',
+                  value: user?.displayName ?? 'Usuario',
+                ),
               ],
             ),
           ),

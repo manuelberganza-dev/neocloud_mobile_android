@@ -140,6 +140,14 @@ class ApiClient {
         options: Options(responseType: ResponseType.bytes),
       );
 
+      final statusCode = response.statusCode ?? 0;
+      if (statusCode < 200 || statusCode >= 300) {
+        throw ApiException(
+          message: 'No se pudo descargar el archivo.',
+          statusCode: response.statusCode,
+        );
+      }
+
       return response.data ?? const [];
     } on DioException catch (error) {
       throw _toApiException(error);

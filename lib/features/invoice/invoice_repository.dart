@@ -1,44 +1,42 @@
+import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
 import 'models/invoice_models.dart';
 
 class InvoiceRepository {
-  const InvoiceRepository();
+  const InvoiceRepository(this._apiClient);
 
-  InvoiceState loadInvoiceDraft() {
-    return const InvoiceState(
-      types: [
-        DteTypeOption(code: 'CF', label: 'Consumidor final', selected: true),
-        DteTypeOption(code: 'CR', label: 'Credito fiscal', selected: false),
-        DteTypeOption(code: 'EX', label: 'Exportacion', selected: false),
-        DteTypeOption(code: 'NC', label: 'Nota de credito', selected: false),
-        DteTypeOption(code: 'ND', label: 'Nota de debito', selected: false),
-      ],
-      products: [
-        InvoiceLine(
-          name: 'Producto A',
-          detail: r'1 x $100.00',
-          amount: r'$100.00',
-        ),
-        InvoiceLine(
-          name: 'Producto B',
-          detail: r'2 x $50.00',
-          amount: r'$100.00',
-        ),
-      ],
-      steps: [
-        InvoiceAction(
-          label: 'Escanear codigo de barras',
-          icon: 'scan',
-          tone: 'ink',
-        ),
-        InvoiceAction(label: 'Vista previa del DTE', icon: 'pdf', tone: 'ink'),
-        InvoiceAction(label: 'Consultar estado MH', icon: 'seal', tone: 'ink'),
-      ],
-      shareActions: [
-        InvoiceAction(label: 'WhatsApp', icon: 'whatsapp', tone: 'green'),
-        InvoiceAction(label: 'Correo', icon: 'mail', tone: 'blue'),
-        InvoiceAction(label: 'Copiar enlace', icon: 'link', tone: 'ink'),
-      ],
-      total: r'$180.00',
+  final ApiClient _apiClient;
+
+  Future<List<InvoiceLookupOption>> searchClients(String search) {
+    return _apiClient.getData<List<InvoiceLookupOption>>(
+      ApiEndpoints.lookupsClientes,
+      queryParameters: {'search': search.trim()},
+      fromJson: _lookupListFromJson,
     );
+  }
+
+  Future<List<InvoiceLookupOption>> searchProducts(String search) {
+    return _apiClient.getData<List<InvoiceLookupOption>>(
+      ApiEndpoints.lookupsProductos,
+      queryParameters: {'search': search.trim()},
+      fromJson: _lookupListFromJson,
+    );
+  }
+
+  Future<DteEmissionResult> emitFactura(InvoiceState draft) {
+    return _apiClient.postData<DteEmissionResult>(
+      ApiEndpoints.dteEmitirFactura,
+      data: draft.toFacturaRequest(),
+      fromJson: DteEmissionResult.fromJson,
+    );
+  }
+
+  Future<List<int>> downloadPdf(int documentId) {
+    return _apiClient.getBytes(ApiEndpoints.dteDocumentoPdf(documentId));
+  }
+
+  static List<InvoiceLookupOption> _lookupListFromJson(Object? json) {
+    final list = json as List<dynamic>? ?? const [];
+    return list.map(InvoiceLookupOption.fromJson).toList();
   }
 }

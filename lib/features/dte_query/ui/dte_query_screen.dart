@@ -6,6 +6,8 @@ import '../../../shared/widgets/action_tile.dart';
 import '../../../shared/widgets/neo_card.dart';
 import '../../../shared/widgets/neo_scaffold.dart';
 import '../../../shared/widgets/status_chip.dart';
+import '../../auth/auth_viewmodel.dart';
+import '../../auth/models/auth_models.dart';
 import '../dte_query_viewmodel.dart';
 
 class DteQueryScreen extends ConsumerWidget {
@@ -14,6 +16,8 @@ class DteQueryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(dteQueryViewModelProvider);
+    final authState = ref.watch(authViewModelProvider);
+    final user = authState.hasValue ? authState.requireValue.user : null;
     final isTablet = MediaQuery.sizeOf(context).width >= 760;
 
     return NeoScaffold(
@@ -44,6 +48,10 @@ class DteQueryScreen extends ConsumerWidget {
             const SizedBox(height: 10),
           ],
           const SizedBox(height: 6),
+          if (user != null) ...[
+            _ProfileCompanyCard(user: user),
+            const SizedBox(height: 14),
+          ],
           const _SectionTitle('Mas herramientas'),
           GridView.builder(
             itemCount: state.tools.length,
@@ -199,6 +207,74 @@ class _DocumentCard extends StatelessWidget {
               SizedBox(width: 6),
               _MiniChip('Sello'),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileCompanyCard extends ConsumerWidget {
+  const _ProfileCompanyCard({required this.user});
+
+  final AuthUser user;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return NeoCard(
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: AppColors.purple,
+            child: Text(
+              user.initials,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SectionTitle('Perfil y empresa'),
+                Text(
+                  user.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  user.companyName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  user.email ?? user.roleLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Cerrar sesion',
+            onPressed: () => ref.read(authViewModelProvider.notifier).logout(),
+            icon: const Icon(Icons.logout_rounded, color: AppColors.purple),
           ),
         ],
       ),

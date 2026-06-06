@@ -7,6 +7,7 @@ import '../../../shared/widgets/app_visuals.dart';
 import '../../../shared/widgets/metric_card.dart';
 import '../../../shared/widgets/neo_card.dart';
 import '../../../shared/widgets/neo_scaffold.dart';
+import '../../auth/auth_viewmodel.dart';
 import '../dashboard_viewmodel.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -15,10 +16,12 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(dashboardViewModelProvider);
+    final authState = ref.watch(authViewModelProvider);
+    final user = authState.hasValue ? authState.requireValue.user : null;
 
     return NeoScaffold(
-      title: 'Hola, Maria!',
-      subtitle: 'Resumen del dia',
+      title: 'Hola, ${user?.displayName ?? 'Usuario'}!',
+      subtitle: '${user?.companyName ?? 'Empresa'} - Resumen del dia',
       trailing: const Icon(
         Icons.notifications_none_rounded,
         color: Colors.white,
