@@ -1,56 +1,48 @@
+import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
+import '../../core/network/api_response.dart';
 import 'models/collections_models.dart';
 
 class CollectionsRepository {
-  const CollectionsRepository();
+  const CollectionsRepository(this._api);
 
-  CollectionsState loadCollections() {
-    return const CollectionsState(
-      invoices: [
-        CollectionInvoice(
-          client: 'Almacenes Centro, S.A.',
-          number: 'A-000123',
-          dueDate: 'Venc. 15/05/2026',
-          amount: r'$2,450.00',
-        ),
-        CollectionInvoice(
-          client: 'Inversiones SA',
-          number: 'A-000122',
-          dueDate: 'Venc. 10/05/2026',
-          amount: r'$1,750.00',
-        ),
-        CollectionInvoice(
-          client: 'Constructora El Sol',
-          number: 'A-000120',
-          dueDate: 'Venc. 05/05/2026',
-          amount: r'$3,200.00',
-        ),
-      ],
-      alerts: [
-        AlertItem(
-          title: 'DTE rechazado',
-          subtitle: 'A-000119 fue rechazado por MH',
-          age: 'Hace 20 min',
-          tone: 'danger',
-        ),
-        AlertItem(
-          title: 'Certificado proximo a vencer',
-          subtitle: 'Mi certificado vence en 7 dias',
-          age: 'Hace 1 dia',
-          tone: 'orange',
-        ),
-        AlertItem(
-          title: 'IVA/F-07 proxima',
-          subtitle: 'Vence el 31/05/2026',
-          age: 'Hace 2 dias',
-          tone: 'blue',
-        ),
-        AlertItem(
-          title: 'Error de comunicacion MH',
-          subtitle: 'Intermitencia con conexion',
-          age: 'Hace 2 dias',
-          tone: 'orange',
-        ),
-      ],
+  final ApiClient _api;
+
+  Future<CobranzaResumen> getResumen() {
+    return _api.getData<CobranzaResumen>(
+      ApiEndpoints.cobrosResumen,
+      fromJson: CobranzaResumen.fromJson,
+    );
+  }
+
+  Future<PagedResult<CobroPendiente>> getPendientes(CobrosQuery query) {
+    return _api.getData<PagedResult<CobroPendiente>>(
+      ApiEndpoints.cobrosPendientes,
+      queryParameters: query.toQuery(),
+      fromJson: (json) => PagedResult.fromJson(json, CobroPendiente.fromJson),
+    );
+  }
+
+  Future<SaldoCliente> getSaldoCliente(int clienteId) {
+    return _api.getData<SaldoCliente>(
+      ApiEndpoints.cobrosCliente(clienteId),
+      fromJson: SaldoCliente.fromJson,
+    );
+  }
+
+  Future<PagoCliente> registrarPago(int dteId, RegistrarPagoForm form) {
+    return _api.postData<PagoCliente>(
+      ApiEndpoints.cobrosDtePagos(dteId),
+      data: form.toJson(),
+      fromJson: PagoCliente.fromJson,
+    );
+  }
+
+  Future<CobroQr> generarQr(GenerarQrCobroRequest request) {
+    return _api.postData<CobroQr>(
+      ApiEndpoints.cobrosQr,
+      data: request.toJson(),
+      fromJson: CobroQr.fromJson,
     );
   }
 }
