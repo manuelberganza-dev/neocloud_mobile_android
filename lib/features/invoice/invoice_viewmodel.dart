@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
+import '../clients/models/client_models.dart' hide formatMoney;
 import 'invoice_repository.dart';
 import 'models/invoice_models.dart';
 
@@ -82,6 +83,42 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
     );
   }
 
+  Future<Customer?> createQuickCustomer(CustomerForm form) async {
+    state = state.copyWith(isSearchingClients: true, errorMessage: null);
+    try {
+      final customer = await ref
+          .read(invoiceRepositoryProvider)
+          .createQuickCustomer(form);
+      state = state.copyWith(
+        selectedClient: InvoiceLookupOption(
+          id: customer.id,
+          label: customer.nombre,
+          parent: customer.tipoDocumentoCodigo,
+          meta: customer.numeroDocumento,
+        ),
+        clientResults: const [],
+        isSearchingClients: false,
+        errorMessage: null,
+      );
+      return customer;
+    } catch (error) {
+      state = state.copyWith(
+        isSearchingClients: false,
+        errorMessage: _friendlyError(error),
+      );
+      return null;
+    }
+  }
+
+  Future<NitVerification?> verifyDocument(String document) async {
+    try {
+      return await ref.read(invoiceRepositoryProvider).verifyDocument(document);
+    } catch (error) {
+      state = state.copyWith(errorMessage: _friendlyError(error));
+      return null;
+    }
+  }
+
   Future<void> searchProducts(String search) async {
     final query = search.trim();
     if (query.length < 2) {
@@ -130,6 +167,38 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
       errorMessage: null,
       pdfPath: null,
     );
+  }
+
+  Future<void> addScannedProduct(String barcode) async {
+    final code = barcode.trim();
+    if (code.isEmpty) {
+      return;
+    }
+
+    state = state.copyWith(isSearchingProducts: true, errorMessage: null);
+    try {
+      final results = await ref
+          .read(invoiceRepositoryProvider)
+          .searchProducts(code);
+      if (results.length == 1) {
+        addProduct(results.first);
+        state = state.copyWith(isSearchingProducts: false);
+        return;
+      }
+
+      state = state.copyWith(
+        productResults: results,
+        isSearchingProducts: false,
+        errorMessage: results.isEmpty
+            ? 'No se encontro producto para el codigo $code.'
+            : null,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isSearchingProducts: false,
+        errorMessage: _friendlyError(error),
+      );
+    }
   }
 
   void increaseQuantity(int index) {

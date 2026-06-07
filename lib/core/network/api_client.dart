@@ -129,6 +129,23 @@ class ApiClient {
     }
   }
 
+  Future<void> patchVoid(
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    try {
+      final response = await _dio.patch<Object?>(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+      );
+      _readVoidApiResponse(response);
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
+  }
+
   Future<List<int>> getBytes(
     String path, {
     Map<String, dynamic>? queryParameters,

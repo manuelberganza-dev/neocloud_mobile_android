@@ -1,5 +1,6 @@
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
+import '../clients/models/client_models.dart';
 import 'models/invoice_models.dart';
 
 class InvoiceRepository {
@@ -20,6 +21,22 @@ class InvoiceRepository {
       ApiEndpoints.lookupsProductos,
       queryParameters: {'search': search.trim()},
       fromJson: _lookupListFromJson,
+    );
+  }
+
+  Future<Customer> createQuickCustomer(CustomerForm form) {
+    return _apiClient.postData<Customer>(
+      ApiEndpoints.clientes,
+      data: form.toCreateJson(),
+      fromJson: Customer.fromJson,
+    );
+  }
+
+  Future<NitVerification> verifyDocument(String document) {
+    return _apiClient.getData<NitVerification>(
+      ApiEndpoints.lookupsVerificarNit,
+      queryParameters: {'documento': document.trim()},
+      fromJson: NitVerification.fromJson,
     );
   }
 

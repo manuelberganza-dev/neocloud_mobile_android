@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/action_tile.dart';
@@ -7,6 +8,8 @@ import '../../../shared/widgets/app_visuals.dart';
 import '../../../shared/widgets/neo_card.dart';
 import '../../../shared/widgets/neo_scaffold.dart';
 import '../../../shared/widgets/status_chip.dart';
+import '../../auth/auth_viewmodel.dart';
+import '../../clients/models/client_models.dart' hide formatMoney;
 import '../invoice_viewmodel.dart';
 import '../models/invoice_models.dart';
 
@@ -17,6 +20,10 @@ class InvoiceScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(invoiceViewModelProvider);
     final notifier = ref.read(invoiceViewModelProvider.notifier);
+    final auth = ref.watch(authViewModelProvider);
+    final user = auth.hasValue ? auth.requireValue.user : null;
+    final canCreateCustomer = user?.hasPermission('Clientes.Crear') ?? false;
+    final canViewProducts = user?.hasPermission('Productos.Ver') ?? false;
 
     return NeoScaffold(
       title: 'Nueva factura',
@@ -63,7 +70,18 @@ class InvoiceScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _BlockTitle('Cliente'),
+                Row(
+                  children: [
+                    const Expanded(child: _BlockTitle('Cliente')),
+                    IconButton(
+                      tooltip: 'Crear cliente',
+                      onPressed: canCreateCustomer
+                          ? () => _openQuickCustomer(context, ref)
+                          : null,
+                      icon: const Icon(Icons.person_add_alt_1_rounded),
+                    ),
+                  ],
+                ),
                 if (state.selectedClient == null)
                   TextField(
                     onChanged: notifier.searchClients,
@@ -114,6 +132,13 @@ class InvoiceScreen extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: _BlockTitle('Productos (${state.itemCount})'),
+                    ),
+                    IconButton(
+                      tooltip: 'Escanear codigo',
+                      onPressed: canViewProducts
+                          ? () => _scanProduct(context, ref)
+                          : null,
+                      icon: const Icon(Icons.qr_code_scanner_rounded),
                     ),
                     Text(
                       'Draft local',
@@ -283,6 +308,293 @@ class InvoiceScreen extends ConsumerWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Future<void> _openQuickCustomer(BuildContext context, WidgetRef ref) async {
+    final form = await showModalBottomSheet<CustomerForm>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const _QuickCustomerSheet(),
+    );
+    if (form == null || !context.mounted) {
+      return;
+    }
+
+    final customer = await ref
+        .read(invoiceViewModelProvider.notifier)
+        .createQuickCustomer(form);
+    if (context.mounted && customer != null) {
+      _showSnack(context, 'Cliente creado y seleccionado.');
+    }
+  }
+
+  Future<void> _scanProduct(BuildContext context, WidgetRef ref) async {
+    final code = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const _BarcodeScannerSheet(),
+    );
+    if (code == null || !context.mounted) {
+      return;
+    }
+
+    await ref.read(invoiceViewModelProvider.notifier).addScannedProduct(code);
+  }
+}
+
+class _QuickCustomerSheet extends ConsumerStatefulWidget {
+  const _QuickCustomerSheet();
+
+  @override
+  ConsumerState<_QuickCustomerSheet> createState() =>
+      _QuickCustomerSheetState();
+}
+
+class _QuickCustomerSheetState extends ConsumerState<_QuickCustomerSheet> {
+  final _document = TextEditingController();
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _phone = TextEditingController();
+  String _type = 'DUI';
+  NitVerification? _verification;
+
+  @override
+  void dispose() {
+    _document.dispose();
+    _name.dispose();
+    _email.dispose();
+    _phone.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 14, 16, bottom + 18),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _SheetHandle(),
+            const Text(
+              'Cliente rapido',
+              style: TextStyle(
+                color: AppColors.navy,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _type,
+                    decoration: const InputDecoration(labelText: 'Tipo'),
+                    items: const [
+                      DropdownMenuItem(value: 'DUI', child: Text('DUI')),
+                      DropdownMenuItem(value: 'NIT', child: Text('NIT')),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _type = value ?? 'DUI'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _document,
+                    decoration: InputDecoration(
+                      labelText: 'NIT/DUI',
+                      suffixIcon: IconButton(
+                        tooltip: 'Verificar',
+                        onPressed: _verify,
+                        icon: const Icon(Icons.verified_rounded),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_verification != null) ...[
+              const SizedBox(height: 8),
+              StatusChip(
+                label: _verification!.mensaje,
+                tone: _verification!.formatoValido ? 'green' : 'danger',
+              ),
+            ],
+            const SizedBox(height: 10),
+            TextField(
+              controller: _name,
+              decoration: const InputDecoration(labelText: 'Nombre'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'Correo'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _phone,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Telefono'),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop(
+                    CustomerForm(
+                      tipoDocumentoCodigo: _type,
+                      numeroDocumento: _document.text,
+                      nombre: _name.text,
+                      correo: _email.text,
+                      telefono: _phone.text,
+                    ),
+                  );
+                },
+                child: const Text('Crear y seleccionar'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _verify() async {
+    final result = await ref
+        .read(invoiceViewModelProvider.notifier)
+        .verifyDocument(_document.text);
+    if (result == null) {
+      return;
+    }
+
+    setState(() {
+      _verification = result;
+      _type = result.tipoDocumento == 'NIT' ? 'NIT' : 'DUI';
+      _document.text = result.documentoNormalizado;
+      if (result.nombre != null && _name.text.trim().isEmpty) {
+        _name.text = result.nombre!;
+      }
+    });
+  }
+}
+
+class _BarcodeScannerSheet extends StatefulWidget {
+  const _BarcodeScannerSheet();
+
+  @override
+  State<_BarcodeScannerSheet> createState() => _BarcodeScannerSheetState();
+}
+
+class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
+  late final MobileScannerController _controller;
+  bool _captured = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = MobileScannerController(
+      formats: const [
+        BarcodeFormat.ean13,
+        BarcodeFormat.ean8,
+        BarcodeFormat.upcA,
+        BarcodeFormat.upcE,
+        BarcodeFormat.code128,
+        BarcodeFormat.code39,
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.72,
+      child: Column(
+        children: [
+          const SizedBox(height: 14),
+          const _SheetHandle(),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Escanear producto',
+              style: TextStyle(
+                color: AppColors.navy,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: MobileScanner(
+                controller: _controller,
+                onDetect: (capture) {
+                  if (_captured) {
+                    return;
+                  }
+                  String? code;
+                  for (final barcode in capture.barcodes) {
+                    final value = barcode.rawValue;
+                    if (value != null && value.isNotEmpty) {
+                      code = value;
+                      break;
+                    }
+                  }
+                  if (code == null || code.isEmpty) {
+                    return;
+                  }
+                  _captured = true;
+                  Navigator.of(context).pop(code);
+                },
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close_rounded),
+              label: const Text('Cancelar'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 44,
+        height: 4,
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: AppColors.line,
+          borderRadius: BorderRadius.circular(999),
+        ),
       ),
     );
   }
@@ -876,4 +1188,10 @@ class _ErrorBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showSnack(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..clearSnackBars()
+    ..showSnackBar(SnackBar(content: Text(message)));
 }
