@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/action_tile.dart';
@@ -45,10 +46,20 @@ class _DteQueryScreenState extends ConsumerState<DteQueryScreen> {
     return NeoScaffold(
       title: 'Consulta DTE',
       subtitle: '${state.total} documentos emitidos',
-      trailing: IconButton(
-        tooltip: 'Actualizar',
-        onPressed: state.isLoading ? null : notifier.refresh,
-        icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Configuracion DTE',
+            onPressed: () => context.push('/dte/configuracion'),
+            icon: const Icon(Icons.settings_rounded, color: Colors.white),
+          ),
+          IconButton(
+            tooltip: 'Actualizar',
+            onPressed: state.isLoading ? null : notifier.refresh,
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

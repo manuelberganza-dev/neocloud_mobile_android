@@ -8,6 +8,7 @@ import '../../features/auth/ui/splash_screen.dart';
 import '../../features/clients/ui/client_detail_screen.dart';
 import '../../features/collections/ui/collections_screen.dart';
 import '../../features/dashboard/ui/dashboard_screen.dart';
+import '../../features/dte_config/ui/dte_config_screen.dart';
 import '../../features/dte_query/ui/dte_query_screen.dart';
 import '../../features/invoice/ui/invoice_screen.dart';
 import '../../features/neoscan/ui/neoscan_screen.dart';
@@ -112,6 +113,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/dte',
                 name: 'dte',
                 builder: (context, state) => const DteQueryScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'configuracion',
+                    name: 'dte-config',
+                    builder: (context, state) => const DteConfigScreen(),
+                  ),
+                ],
               ),
             ],
           ),
