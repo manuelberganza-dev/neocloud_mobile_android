@@ -22,9 +22,12 @@ enum AppEnvironment {
 class ApiEnvironment {
   const ApiEnvironment._();
 
+  static const deployedBaseUrl =
+      'https://excluded-supplements-anyway-broken.trycloudflare.com';
+
   static const _environmentName = String.fromEnvironment(
     'APP_ENV',
-    defaultValue: 'local',
+    defaultValue: 'production',
   );
 
   static const _apiBaseUrlOverride = String.fromEnvironment(
@@ -42,8 +45,8 @@ class ApiEnvironment {
 
     return switch (current) {
       AppEnvironment.local => 'http://localhost:5058',
-      AppEnvironment.staging => 'https://staging.neostp.com',
-      AppEnvironment.production => 'https://api.neostp.com',
+      AppEnvironment.staging => deployedBaseUrl,
+      AppEnvironment.production => deployedBaseUrl,
     };
   }
 

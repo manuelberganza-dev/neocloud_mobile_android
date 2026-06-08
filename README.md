@@ -1,58 +1,69 @@
 # NeoCloud Mobile Android
 
-Aplicacion Flutter para Android telefono y tablet. Esta primera base construye
-solo las pantallas y la parte visual, siguiendo los sprints y la propuesta del
-producto sin implementar logica de negocio ni consumo real de API.
+Aplicacion Flutter para Android telefono y tablet. Esta beta demo permite
+mostrar el flujo comercial principal de NeoCloud Mobile: iniciar sesion, emitir
+DTE, consultar documentos, administrar clientes/productos, revisar configuracion
+DTE y dar seguimiento a cobros.
 
-## Arquitectura definida
+## Estado actual
 
-Clean Architecture sin "Clean Hell": responsabilidades claras y features como
-mini-MVC modernos.
+- Plataforma: Android 9 o superior.
+- API conectada: `https://excluded-supplements-anyway-broken.trycloudflare.com`
+- Arquitectura: features simples con UI, ViewModel, Repository y Models.
+- Estado global: Riverpod 3.
+
+## Sprints completados
+
+### Sprint 0: Fundaciones API y sesion
+
+La app ya se conecta al backend real, maneja sesion con token, refresca credenciales
+y valida el usuario activo al abrir. Tambien incluye health check para confirmar si
+la API esta disponible.
+
+### Sprint 1: Demo DTE minima funcional
+
+La app permite buscar cliente y producto, armar una factura, emitirla contra el
+backend y ver el resultado final. Tambien permite descargar y compartir el PDF.
+
+### Sprint 2: Gestion completa de DTE
+
+Se agrego consulta de documentos emitidos con filtros, detalle, descarga de PDF/JSON
+y reenvio por correo. Tambien se muestran estados de carga, error y documentos vacios.
+
+### Sprint 3: Clientes y productos reales
+
+Se agrego gestion ligera de clientes y productos, creacion rapida durante facturacion,
+verificacion de NIT/DUI y busqueda de productos por codigo de barras.
+
+### Sprint 4: Configuracion DTE movil
+
+La app muestra si la empresa esta lista para emitir: credenciales MH, establecimiento,
+punto de venta, certificado y ambiente activo. Tambien permite subir certificado y
+probar conexion con MH sin exponer secretos.
+
+### Sprint 5: Dashboard y cobros para demo comercial
+
+El dashboard ya muestra informacion real de la empresa. Cobros incluye resumen,
+pendientes, vencidas, saldo por cliente, registro de pago, generacion de QR y compartir
+enlace/QR.
+
+## Estructura principal
 
 ```text
 lib/
-+-- core/
-|   +-- config/        # Constantes globales, flags, entorno
-|   +-- routing/       # go_router y rutas principales
-|   +-- theme/         # Paleta NeoCloud, ThemeData y estilos base
-+-- features/
-|   +-- dashboard/
-|   |   +-- ui/
-|   |   +-- dashboard_viewmodel.dart
-|   |   +-- dashboard_repository.dart
-|   |   +-- models/
-|   +-- invoice/
-|   +-- clients/
-|   +-- neoscan/
-|   +-- collections/
-|   +-- dte_query/
-+-- shared/
-|   +-- widgets/       # Componentes visuales reutilizables
++-- core/       # configuracion, red, seguridad, rutas y tema
++-- features/   # modulos de negocio de la app
++-- shared/     # widgets reutilizables
 +-- main.dart
 ```
 
-## Regla por feature
+## APK demo
 
-- `ui/`: widgets que solo dibujan el estado recibido.
-- `*_viewmodel.dart`: presentacion y estado expuesto con Riverpod 3 y
-  anotaciones `@riverpod`.
-- `*_repository.dart`: fuente de datos mock, reemplazable por API/cache.
-- `models/`: clases simples de datos de pantalla.
-
-Flujo esperado:
+El APK de demo se genera como:
 
 ```text
-UI -> ViewModel -> Repository -> ViewModel -> UI
+NeoCloud-Mobile-DEMO-BETA.apk
 ```
 
-## Sprints visuales cubiertos
-
-- Sprint 1: base de app, navegacion, tema y estructura para auth/API futura.
-- Sprint 2: Inicio / Dashboard rapido.
-- Sprint 3: Emision rapida de DTE.
-- Sprint 4: CRM ligero y catalogo desde herramientas.
-- Sprint 5: NeoScan / OCR visual.
-- Sprint 6: Consulta DTE, cobros, alertas y herramientas.
-- Sprint 7: base responsive telefono/tablet y estados visuales listos para QA.
-
-A new Flutter project.
+Esta version esta pensada para pruebas comerciales en dispositivos Android 9 o
+superiores.
