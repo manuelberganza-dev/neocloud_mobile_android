@@ -9,6 +9,7 @@ import '../../../shared/widgets/metric_card.dart';
 import '../../../shared/widgets/neo_card.dart';
 import '../../../shared/widgets/neo_scaffold.dart';
 import '../../auth/auth_viewmodel.dart';
+import '../../notifications/notifications_viewmodel.dart';
 import '../dashboard_viewmodel.dart';
 import '../models/dashboard_models.dart';
 
@@ -25,24 +26,37 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(dashboardViewModelProvider.notifier).load();
+      ref.read(notificationsViewModelProvider.notifier).loadSummary();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(dashboardViewModelProvider);
+    final notifications = ref.watch(notificationsViewModelProvider);
     final authState = ref.watch(authViewModelProvider);
     final user = authState.hasValue ? authState.requireValue.user : null;
 
     return NeoScaffold(
       title: 'Hola, ${user?.displayName ?? 'Usuario'}!',
       subtitle: '${user?.companyName ?? 'Empresa'} - Resumen del dia',
-      trailing: IconButton(
-        tooltip: 'Actualizar',
-        onPressed: state.isLoading
-            ? null
-            : () => ref.read(dashboardViewModelProvider.notifier).load(),
-        icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _NotificationButton(count: notifications.summary.pendientes),
+          IconButton(
+            tooltip: 'Actualizar',
+            onPressed: state.isLoading
+                ? null
+                : () {
+                    ref.read(dashboardViewModelProvider.notifier).load();
+                    ref
+                        .read(notificationsViewModelProvider.notifier)
+                        .loadSummary();
+                  },
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,6 +89,46 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const SizedBox(height: 18),
             _ActivityCard(activities: state.activities),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationButton extends StatelessWidget {
+  const _NotificationButton({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Notificaciones',
+      onPressed: () => context.push('/notifications'),
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          const Icon(Icons.notifications_none_rounded, color: Colors.white),
+          if (count > 0)
+            Positioned(
+              right: -6,
+              top: -6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.danger,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  count > 99 ? '99+' : count.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

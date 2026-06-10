@@ -23,7 +23,7 @@ class ApiEnvironment {
   const ApiEnvironment._();
 
   static const deployedBaseUrl =
-      'https://excluded-supplements-anyway-broken.trycloudflare.com';
+      'https://zip-yards-wearing-silence.trycloudflare.com';
 
   static const _environmentName = String.fromEnvironment(
     'APP_ENV',

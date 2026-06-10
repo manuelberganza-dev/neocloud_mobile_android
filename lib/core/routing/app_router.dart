@@ -12,6 +12,7 @@ import '../../features/dte_config/ui/dte_config_screen.dart';
 import '../../features/dte_query/ui/dte_query_screen.dart';
 import '../../features/invoice/ui/invoice_screen.dart';
 import '../../features/neoscan/ui/neoscan_screen.dart';
+import '../../features/notifications/ui/notifications_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -68,6 +69,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/',
                 name: 'dashboard',
                 builder: (context, state) => const DashboardScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'notifications',
+                    name: 'notifications',
+                    builder: (context, state) => const NotificationsScreen(),
+                  ),
+                ],
               ),
             ],
           ),

@@ -2,7 +2,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
-        android:label="neocloud_mobile_android"
+        android:label="NeoCloud Mobile"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
