@@ -22,23 +22,4 @@ class DteQueryRepository {
       fromJson: DteDetail.fromJson,
     );
   }
-
-  Future<List<int>> downloadPdf(int id) {
-    return _apiClient.getBytes(ApiEndpoints.dteDocumentoPdf(id));
-  }
-
-  Future<List<int>> downloadJson(int id) {
-    return _apiClient.getBytes(ApiEndpoints.dteDocumentoJson(id));
-  }
-
-  Future<DteReenvioResult> resendEmail({
-    required int id,
-    required String email,
-  }) {
-    return _apiClient.postData<DteReenvioResult>(
-      ApiEndpoints.dteDocumentoReenviar(id),
-      data: {'destinatario': email},
-      fromJson: DteReenvioResult.fromJson,
-    );
-  }
 }

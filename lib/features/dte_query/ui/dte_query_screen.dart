@@ -464,6 +464,14 @@ class _DteDetailSheet extends ConsumerWidget {
     final state = ref.watch(dteQueryViewModelProvider);
     final notifier = ref.read(dteQueryViewModelProvider.notifier);
     final detail = state.selectedDetail;
+    final auth = ref.watch(authViewModelProvider);
+    final user = auth.hasValue ? auth.requireValue.user : null;
+    final canConsultDte =
+        user?.isSuperAdmin == true ||
+        user?.hasPermission('DTE.Consultar') == true;
+    final canResendDte =
+        user?.isSuperAdmin == true ||
+        user?.hasPermission('DTE.Reenviar') == true;
 
     return DraggableScrollableSheet(
       expand: false,
@@ -564,52 +572,81 @@ class _DteDetailSheet extends ConsumerWidget {
               else
                 for (final line in detail.detalles) _LineRow(line: line),
               const SizedBox(height: 16),
-              Row(
+              Column(
                 children: [
-                  Expanded(
-                    child: _SheetAction(
-                      label: 'PDF',
-                      icon: 'pdf',
-                      tone: 'purple',
-                      busy: state.isFileBusy,
-                      onTap: () async {
-                        final file = await notifier.downloadPdf();
-                        if (context.mounted && file != null) {
-                          _showSnack(
-                            context,
-                            'PDF descargado: ${file.fileName}',
-                          );
-                        }
-                      },
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _SheetAction(
+                          label: 'PDF',
+                          icon: 'pdf',
+                          tone: 'purple',
+                          busy: state.isFileBusy,
+                          enabled: canConsultDte,
+                          onTap: () async {
+                            final file = await notifier.downloadPdf();
+                            if (context.mounted && file != null) {
+                              _showSnack(
+                                context,
+                                'PDF descargado: ${file.fileName}',
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _SheetAction(
+                          label: 'JSON',
+                          icon: 'json',
+                          tone: 'blue',
+                          busy: state.isFileBusy,
+                          enabled: canConsultDte,
+                          onTap: () async {
+                            final file = await notifier.downloadJson();
+                            if (context.mounted && file != null) {
+                              _showSnack(
+                                context,
+                                'JSON descargado: ${file.fileName}',
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _SheetAction(
-                      label: 'JSON',
-                      icon: 'json',
-                      tone: 'blue',
-                      busy: state.isFileBusy,
-                      onTap: () async {
-                        final file = await notifier.downloadJson();
-                        if (context.mounted && file != null) {
-                          _showSnack(
-                            context,
-                            'JSON descargado: ${file.fileName}',
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _SheetAction(
-                      label: 'Reenviar',
-                      icon: 'mail',
-                      tone: 'green',
-                      busy: state.isSendingEmail,
-                      onTap: () => _resendEmail(context, ref, detail),
-                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _SheetAction(
+                          label: 'WhatsApp',
+                          icon: 'whatsapp',
+                          tone: 'green',
+                          busy: state.isSharingPdf,
+                          enabled: canConsultDte,
+                          onTap: () async {
+                            final file = await notifier.sharePdf(
+                              channel: 'WhatsApp',
+                            );
+                            if (context.mounted && file != null) {
+                              _showSnack(context, 'DTE listo para compartir.');
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _SheetAction(
+                          label: 'Reenviar',
+                          icon: 'mail',
+                          tone: 'green',
+                          busy: state.isSendingEmail,
+                          enabled: canResendDte,
+                          onTap: () => _resendEmail(context, ref, detail),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -849,30 +886,35 @@ class _SheetAction extends StatelessWidget {
     required this.tone,
     required this.busy,
     required this.onTap,
+    this.enabled = true,
   });
 
   final String label;
   final String icon;
   final String tone;
   final bool busy;
+  final bool enabled;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: busy ? null : onTap,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          ActionTile(label: label, icon: icon, tone: tone, compact: true),
-          if (busy)
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-        ],
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: enabled && !busy ? onTap : null,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            ActionTile(label: label, icon: icon, tone: tone, compact: true),
+            if (busy)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
+        ),
       ),
     );
   }

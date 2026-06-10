@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
+import '../dte_delivery/dte_delivery_service.dart';
+import '../dte_delivery/models/dte_delivery_models.dart';
 import 'dte_query_repository.dart';
 import 'models/dte_query_models.dart';
 
@@ -137,7 +136,7 @@ class DteQueryViewModel extends Notifier<DteQueryState> {
     return _downloadSelectedFile(kind: _DteFileKind.json);
   }
 
-  Future<DteReenvioResult?> resendEmail(String email) async {
+  Future<DteEmailDeliveryResult?> resendEmail(String email) async {
     final detail = state.selectedDetail;
     final cleanEmail = email.trim();
     if (detail == null || cleanEmail.isEmpty) {
@@ -155,14 +154,52 @@ class DteQueryViewModel extends Notifier<DteQueryState> {
 
     try {
       final result = await ref
-          .read(dteQueryRepositoryProvider)
-          .resendEmail(id: detail.id, email: cleanEmail);
+          .read(dteDeliveryServiceProvider)
+          .resendEmail(document: _deliveryDocument(detail), email: cleanEmail);
       state = state.copyWith(isSendingEmail: false);
       return result;
     } catch (error) {
       final apiError = error is ApiException ? error : null;
       state = state.copyWith(
         isSendingEmail: false,
+        errorMessage: _friendlyError(error),
+        traceId: apiError?.traceId,
+      );
+      return null;
+    }
+  }
+
+  Future<DteDownloadedFile?> sharePdf({required String channel}) async {
+    final detail = state.selectedDetail;
+    if (detail == null) {
+      state = state.copyWith(errorMessage: 'Selecciona un DTE primero.');
+      return null;
+    }
+
+    state = state.copyWith(
+      isSharingPdf: true,
+      errorMessage: null,
+      traceId: null,
+      lastDownloadedFile: null,
+    );
+
+    try {
+      final file = await ref
+          .read(dteDeliveryServiceProvider)
+          .sharePdf(_deliveryDocument(detail), channel: channel);
+      final downloaded = DteDownloadedFile(
+        path: file.path,
+        fileName: file.fileName,
+      );
+      state = state.copyWith(
+        isSharingPdf: false,
+        lastDownloadedFile: downloaded,
+      );
+      return downloaded;
+    } catch (error) {
+      final apiError = error is ApiException ? error : null;
+      state = state.copyWith(
+        isSharingPdf: false,
         errorMessage: _friendlyError(error),
         traceId: apiError?.traceId,
       );
@@ -204,21 +241,15 @@ class DteQueryViewModel extends Notifier<DteQueryState> {
     );
 
     try {
-      final repository = ref.read(dteQueryRepositoryProvider);
-      final bytes = kind == _DteFileKind.pdf
-          ? await repository.downloadPdf(detail.id)
-          : await repository.downloadJson(detail.id);
+      final service = ref.read(dteDeliveryServiceProvider);
+      final file = kind == _DteFileKind.pdf
+          ? await service.downloadPdf(_deliveryDocument(detail))
+          : await service.downloadJson(_deliveryDocument(detail));
 
-      if (bytes.isEmpty) {
-        throw const ApiException(message: 'El archivo descargado esta vacio.');
-      }
-
-      final fileName = _fileName(detail, kind);
-      final directory = await _downloadDirectory();
-      final file = File('${directory.path}/$fileName');
-      await file.writeAsBytes(bytes, flush: true);
-
-      final downloaded = DteDownloadedFile(path: file.path, fileName: fileName);
+      final downloaded = DteDownloadedFile(
+        path: file.path,
+        fileName: file.fileName,
+      );
       state = state.copyWith(isFileBusy: false, lastDownloadedFile: downloaded);
       return downloaded;
     } catch (error) {
@@ -232,16 +263,13 @@ class DteQueryViewModel extends Notifier<DteQueryState> {
     }
   }
 
-  Future<Directory> _downloadDirectory() async {
-    return await getExternalStorageDirectory() ?? await getTemporaryDirectory();
-  }
-
-  String _fileName(DteDetail detail, _DteFileKind kind) {
-    final safeNumber = detail.numeroControl.replaceAll(
-      RegExp(r'[^A-Za-z0-9_-]+'),
-      '_',
+  DteDeliveryDocument _deliveryDocument(DteDetail detail) {
+    return DteDeliveryDocument(
+      id: detail.id,
+      numeroControl: detail.numeroControl,
+      totalPagar: detail.totalPagar,
+      receptorCorreo: detail.receptorCorreo,
     );
-    return '$safeNumber.${kind.extension}';
   }
 
   String _friendlyError(Object error) {

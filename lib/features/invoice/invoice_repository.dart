@@ -48,10 +48,6 @@ class InvoiceRepository {
     );
   }
 
-  Future<List<int>> downloadPdf(int documentId) {
-    return _apiClient.getBytes(ApiEndpoints.dteDocumentoPdf(documentId));
-  }
-
   static List<InvoiceLookupOption> _lookupListFromJson(Object? json) {
     final list = json as List<dynamic>? ?? const [];
     return list.map(InvoiceLookupOption.fromJson).toList();

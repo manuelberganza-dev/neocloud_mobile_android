@@ -1,12 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
 import '../clients/models/client_models.dart' hide formatMoney;
+import '../dte_delivery/dte_delivery_service.dart';
+import '../dte_delivery/models/dte_delivery_models.dart';
 import 'invoice_repository.dart';
 import 'models/invoice_models.dart';
 
@@ -35,6 +33,7 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
       ],
       emission: null,
       errorMessage: null,
+      traceId: null,
       pdfPath: null,
     );
   }
@@ -70,6 +69,7 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
       clientResults: const [],
       emission: null,
       errorMessage: null,
+      traceId: null,
       pdfPath: null,
     );
   }
@@ -79,6 +79,7 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
       selectedClient: null,
       emission: null,
       errorMessage: null,
+      traceId: null,
       pdfPath: null,
     );
   }
@@ -99,12 +100,15 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
         clientResults: const [],
         isSearchingClients: false,
         errorMessage: null,
+        traceId: null,
       );
       return customer;
     } catch (error) {
+      final apiError = error is ApiException ? error : null;
       state = state.copyWith(
         isSearchingClients: false,
         errorMessage: _friendlyError(error),
+        traceId: apiError?.traceId,
       );
       return null;
     }
@@ -114,7 +118,11 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
     try {
       return await ref.read(invoiceRepositoryProvider).verifyDocument(document);
     } catch (error) {
-      state = state.copyWith(errorMessage: _friendlyError(error));
+      final apiError = error is ApiException ? error : null;
+      state = state.copyWith(
+        errorMessage: _friendlyError(error),
+        traceId: apiError?.traceId,
+      );
       return null;
     }
   }
@@ -165,6 +173,7 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
       productResults: const [],
       emission: null,
       errorMessage: null,
+      traceId: null,
       pdfPath: null,
     );
   }
@@ -192,11 +201,14 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
         errorMessage: results.isEmpty
             ? 'No se encontro producto para el codigo $code.'
             : null,
+        traceId: null,
       );
     } catch (error) {
+      final apiError = error is ApiException ? error : null;
       state = state.copyWith(
         isSearchingProducts: false,
         errorMessage: _friendlyError(error),
+        traceId: apiError?.traceId,
       );
     }
   }
@@ -219,6 +231,7 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
       lines: lines,
       emission: null,
       errorMessage: null,
+      traceId: null,
       pdfPath: null,
     );
   }
@@ -227,6 +240,7 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
     if (state.selectedClient == null) {
       state = state.copyWith(
         errorMessage: 'Selecciona un cliente antes de emitir.',
+        traceId: null,
       );
       return;
     }
@@ -234,6 +248,7 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
     if (state.lines.isEmpty) {
       state = state.copyWith(
         errorMessage: 'Agrega al menos un producto a la factura.',
+        traceId: null,
       );
       return;
     }
@@ -242,6 +257,7 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
       isSubmitting: true,
       emission: null,
       errorMessage: null,
+      traceId: null,
       pdfPath: null,
     );
 
@@ -251,60 +267,110 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
           .emitFactura(state);
       state = state.copyWith(isSubmitting: false, emission: result);
     } catch (error) {
+      final apiError = error is ApiException ? error : null;
       state = state.copyWith(
         isSubmitting: false,
         errorMessage: _friendlyError(error),
+        traceId: apiError?.traceId,
       );
     }
   }
 
-  Future<void> downloadPdf() async {
+  Future<DteDeliveryFile?> downloadPdf() async {
     final emission = state.emission;
     if (emission == null) {
-      state = state.copyWith(errorMessage: 'Emite el DTE antes de descargar.');
-      return;
+      state = state.copyWith(
+        errorMessage: 'Emite el DTE antes de descargar.',
+        traceId: null,
+      );
+      return null;
     }
 
-    state = state.copyWith(isPdfBusy: true, errorMessage: null);
+    state = state.copyWith(
+      isDownloadingPdf: true,
+      errorMessage: null,
+      traceId: null,
+    );
     try {
-      final path = await _downloadPdfToTemporaryFile(emission);
-      state = state.copyWith(isPdfBusy: false, pdfPath: path);
+      final file = await ref
+          .read(dteDeliveryServiceProvider)
+          .downloadPdf(_deliveryDocument(emission));
+      state = state.copyWith(isDownloadingPdf: false, pdfPath: file.path);
+      return file;
     } catch (error) {
+      final apiError = error is ApiException ? error : null;
       state = state.copyWith(
-        isPdfBusy: false,
+        isDownloadingPdf: false,
         errorMessage: _friendlyError(error),
+        traceId: apiError?.traceId,
       );
+      return null;
     }
   }
 
-  Future<void> sharePdf({required String channel}) async {
+  Future<DteDeliveryFile?> sharePdf({required String channel}) async {
     final emission = state.emission;
     if (emission == null) {
-      state = state.copyWith(errorMessage: 'Emite el DTE antes de compartir.');
-      return;
+      state = state.copyWith(
+        errorMessage: 'Emite el DTE antes de compartir.',
+        traceId: null,
+      );
+      return null;
     }
 
-    state = state.copyWith(isPdfBusy: true, errorMessage: null);
+    state = state.copyWith(
+      isSharingPdf: true,
+      errorMessage: null,
+      traceId: null,
+    );
     try {
-      final path = state.pdfPath ?? await _downloadPdfToTemporaryFile(emission);
-      final fileName = _pdfFileName(emission);
-      await SharePlus.instance.share(
-        ShareParams(
-          title: 'Compartir DTE',
-          subject: 'DTE ${emission.numeroControl}',
-          text:
-              'DTE ${emission.numeroControl} - ${formatMoney(emission.totalPagar)}',
-          files: [XFile(path, mimeType: 'application/pdf', name: fileName)],
-          fileNameOverrides: [fileName],
-        ),
-      );
-      state = state.copyWith(isPdfBusy: false, pdfPath: path);
+      final file = await ref
+          .read(dteDeliveryServiceProvider)
+          .sharePdf(_deliveryDocument(emission), channel: channel);
+      state = state.copyWith(isSharingPdf: false, pdfPath: file.path);
+      return file;
     } catch (error) {
+      final apiError = error is ApiException ? error : null;
       state = state.copyWith(
-        isPdfBusy: false,
+        isSharingPdf: false,
         errorMessage:
             'No se pudo compartir por $channel. ${_friendlyError(error)}',
+        traceId: apiError?.traceId,
       );
+      return null;
+    }
+  }
+
+  Future<DteEmailDeliveryResult?> resendEmail(String email) async {
+    final emission = state.emission;
+    if (emission == null) {
+      state = state.copyWith(
+        errorMessage: 'Emite el DTE antes de reenviar por correo.',
+        traceId: null,
+      );
+      return null;
+    }
+
+    state = state.copyWith(
+      isSendingEmail: true,
+      errorMessage: null,
+      traceId: null,
+    );
+
+    try {
+      final result = await ref
+          .read(dteDeliveryServiceProvider)
+          .resendEmail(document: _deliveryDocument(emission), email: email);
+      state = state.copyWith(isSendingEmail: false);
+      return result;
+    } catch (error) {
+      final apiError = error is ApiException ? error : null;
+      state = state.copyWith(
+        isSendingEmail: false,
+        errorMessage: _friendlyError(error),
+        traceId: apiError?.traceId,
+      );
+      return null;
     }
   }
 
@@ -326,35 +392,25 @@ class InvoiceViewModel extends Notifier<InvoiceState> {
       lines: lines,
       emission: null,
       errorMessage: null,
+      traceId: null,
       pdfPath: null,
     );
   }
 
-  Future<String> _downloadPdfToTemporaryFile(DteEmissionResult emission) async {
-    final bytes = await ref
-        .read(invoiceRepositoryProvider)
-        .downloadPdf(emission.id);
-    if (bytes.isEmpty) {
-      throw const ApiException(message: 'El PDF descargado esta vacio.');
-    }
-
-    final directory = await getTemporaryDirectory();
-    final file = File('${directory.path}/${_pdfFileName(emission)}');
-    await file.writeAsBytes(bytes, flush: true);
-    return file.path;
-  }
-
-  String _pdfFileName(DteEmissionResult emission) {
-    final safeNumber = emission.numeroControl.replaceAll(
-      RegExp(r'[^A-Za-z0-9_-]+'),
-      '_',
+  DteDeliveryDocument _deliveryDocument(DteEmissionResult emission) {
+    return DteDeliveryDocument(
+      id: emission.id,
+      numeroControl: emission.numeroControl,
+      totalPagar: emission.totalPagar,
+      receptorCorreo: emission.receptorCorreo,
     );
-    return '$safeNumber.pdf';
   }
 
   String _friendlyError(Object error) {
     if (error is ApiException) {
-      return error.message;
+      return error.errors.isEmpty
+          ? error.message
+          : '${error.message} ${error.errors.join(', ')}';
     }
     return 'No se pudo completar la operacion. Revisa la conexion e intenta de nuevo.';
   }

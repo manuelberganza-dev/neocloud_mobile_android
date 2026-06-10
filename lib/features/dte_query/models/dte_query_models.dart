@@ -245,36 +245,6 @@ class DteLineItem {
   }
 }
 
-class DteReenvioResult {
-  const DteReenvioResult({
-    required this.enviado,
-    this.destinatario,
-    this.mensaje,
-    this.detalle,
-  });
-
-  final bool enviado;
-  final String? destinatario;
-  final String? mensaje;
-  final String? detalle;
-
-  String get displayMessage {
-    return _cleanText(mensaje) ??
-        _cleanText(detalle) ??
-        (enviado ? 'Correo enviado.' : 'No se pudo enviar el correo.');
-  }
-
-  factory DteReenvioResult.fromJson(Object? json) {
-    final map = json as Map<String, dynamic>;
-    return DteReenvioResult(
-      enviado: map['enviado'] == true,
-      destinatario: _cleanText(map['destinatario']?.toString()),
-      mensaje: _cleanText(map['mensaje']?.toString()),
-      detalle: _cleanText(map['detalle']?.toString()),
-    );
-  }
-}
-
 class DteDownloadedFile {
   const DteDownloadedFile({required this.path, required this.fileName});
 
@@ -293,6 +263,7 @@ class DteQueryState {
     required this.isDetailLoading,
     required this.isFileBusy,
     required this.isSendingEmail,
+    required this.isSharingPdf,
     this.selectedDetail,
     this.errorMessage,
     this.traceId,
@@ -310,6 +281,7 @@ class DteQueryState {
       isDetailLoading: false,
       isFileBusy: false,
       isSendingEmail: false,
+      isSharingPdf: false,
     );
   }
 
@@ -322,6 +294,7 @@ class DteQueryState {
   final bool isDetailLoading;
   final bool isFileBusy;
   final bool isSendingEmail;
+  final bool isSharingPdf;
   final DteDetail? selectedDetail;
   final String? errorMessage;
   final String? traceId;
@@ -341,6 +314,7 @@ class DteQueryState {
     bool? isDetailLoading,
     bool? isFileBusy,
     bool? isSendingEmail,
+    bool? isSharingPdf,
     Object? selectedDetail = _unset,
     Object? errorMessage = _unset,
     Object? traceId = _unset,
@@ -356,6 +330,7 @@ class DteQueryState {
       isDetailLoading: isDetailLoading ?? this.isDetailLoading,
       isFileBusy: isFileBusy ?? this.isFileBusy,
       isSendingEmail: isSendingEmail ?? this.isSendingEmail,
+      isSharingPdf: isSharingPdf ?? this.isSharingPdf,
       selectedDetail: selectedDetail == _unset
           ? this.selectedDetail
           : selectedDetail as DteDetail?,

@@ -130,6 +130,7 @@ class DteEmissionResult {
     required this.totalPagar,
     this.selloRecibido,
     this.receptorNombre,
+    this.receptorCorreo,
   });
 
   final int id;
@@ -138,6 +139,7 @@ class DteEmissionResult {
   final double totalPagar;
   final String? selloRecibido;
   final String? receptorNombre;
+  final String? receptorCorreo;
 
   String get tone {
     return switch (estadoCodigo.toUpperCase()) {
@@ -157,6 +159,7 @@ class DteEmissionResult {
       totalPagar: (map['totalPagar'] as num?)?.toDouble() ?? 0,
       selloRecibido: _cleanText(map['selloRecibido']?.toString()),
       receptorNombre: _cleanText(map['receptorNombre']?.toString()),
+      receptorCorreo: _cleanText(map['receptorCorreo']?.toString()),
     );
   }
 }
@@ -170,10 +173,13 @@ class InvoiceState {
     required this.isSearchingClients,
     required this.isSearchingProducts,
     required this.isSubmitting,
-    required this.isPdfBusy,
+    required this.isDownloadingPdf,
+    required this.isSharingPdf,
+    required this.isSendingEmail,
     this.selectedClient,
     this.emission,
     this.errorMessage,
+    this.traceId,
     this.pdfPath,
   });
 
@@ -192,7 +198,9 @@ class InvoiceState {
       isSearchingClients: false,
       isSearchingProducts: false,
       isSubmitting: false,
-      isPdfBusy: false,
+      isDownloadingPdf: false,
+      isSharingPdf: false,
+      isSendingEmail: false,
     );
   }
 
@@ -205,9 +213,14 @@ class InvoiceState {
   final bool isSearchingClients;
   final bool isSearchingProducts;
   final bool isSubmitting;
-  final bool isPdfBusy;
+  final bool isDownloadingPdf;
+  final bool isSharingPdf;
+  final bool isSendingEmail;
   final String? errorMessage;
+  final String? traceId;
   final String? pdfPath;
+
+  bool get isPdfBusy => isDownloadingPdf || isSharingPdf || isSendingEmail;
 
   String get selectedTypeCode {
     return types.firstWhere((type) => type.selected).code;
@@ -245,8 +258,11 @@ class InvoiceState {
     bool? isSearchingClients,
     bool? isSearchingProducts,
     bool? isSubmitting,
-    bool? isPdfBusy,
+    bool? isDownloadingPdf,
+    bool? isSharingPdf,
+    bool? isSendingEmail,
     Object? errorMessage = _unset,
+    Object? traceId = _unset,
     Object? pdfPath = _unset,
   }) {
     return InvoiceState(
@@ -263,10 +279,13 @@ class InvoiceState {
       isSearchingClients: isSearchingClients ?? this.isSearchingClients,
       isSearchingProducts: isSearchingProducts ?? this.isSearchingProducts,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      isPdfBusy: isPdfBusy ?? this.isPdfBusy,
+      isDownloadingPdf: isDownloadingPdf ?? this.isDownloadingPdf,
+      isSharingPdf: isSharingPdf ?? this.isSharingPdf,
+      isSendingEmail: isSendingEmail ?? this.isSendingEmail,
       errorMessage: errorMessage == _unset
           ? this.errorMessage
           : errorMessage as String?,
+      traceId: traceId == _unset ? this.traceId : traceId as String?,
       pdfPath: pdfPath == _unset ? this.pdfPath : pdfPath as String?,
     );
   }

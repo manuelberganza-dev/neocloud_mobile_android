@@ -24,6 +24,12 @@ class InvoiceScreen extends ConsumerWidget {
     final user = auth.hasValue ? auth.requireValue.user : null;
     final canCreateCustomer = user?.hasPermission('Clientes.Crear') ?? false;
     final canViewProducts = user?.hasPermission('Productos.Ver') ?? false;
+    final canConsultDte =
+        user?.isSuperAdmin == true ||
+        user?.hasPermission('DTE.Consultar') == true;
+    final canResendDte =
+        user?.isSuperAdmin == true ||
+        user?.hasPermission('DTE.Reenviar') == true;
 
     return NeoScaffold(
       title: 'Nueva factura',
@@ -33,7 +39,7 @@ class InvoiceScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (state.errorMessage != null) ...[
-            _ErrorBanner(message: state.errorMessage!),
+            _ErrorBanner(message: state.errorMessage!, traceId: state.traceId),
             const SizedBox(height: 12),
           ],
           NeoCard(
@@ -267,9 +273,14 @@ class InvoiceScreen extends ConsumerWidget {
                   label: 'Descargar',
                   icon: 'pdf',
                   tone: 'purple',
-                  busy: state.isPdfBusy,
-                  enabled: state.canSharePdf,
-                  onTap: notifier.downloadPdf,
+                  busy: state.isDownloadingPdf,
+                  enabled: state.canSharePdf && canConsultDte,
+                  onTap: () async {
+                    final file = await notifier.downloadPdf();
+                    if (context.mounted && file != null) {
+                      _showSnack(context, 'PDF descargado: ${file.fileName}');
+                    }
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -278,8 +289,8 @@ class InvoiceScreen extends ConsumerWidget {
                   label: 'WhatsApp',
                   icon: 'whatsapp',
                   tone: 'green',
-                  busy: state.isPdfBusy,
-                  enabled: state.canSharePdf,
+                  busy: state.isSharingPdf,
+                  enabled: state.canSharePdf && canConsultDte,
                   onTap: () => notifier.sharePdf(channel: 'WhatsApp'),
                 ),
               ),
@@ -289,9 +300,9 @@ class InvoiceScreen extends ConsumerWidget {
                   label: 'Correo',
                   icon: 'mail',
                   tone: 'blue',
-                  busy: state.isPdfBusy,
-                  enabled: state.canSharePdf,
-                  onTap: () => notifier.sharePdf(channel: 'correo'),
+                  busy: state.isSendingEmail,
+                  enabled: state.canSharePdf && canResendDte,
+                  onTap: () => _sendEmail(context, ref),
                 ),
               ),
             ],
@@ -343,6 +354,28 @@ class InvoiceScreen extends ConsumerWidget {
     }
 
     await ref.read(invoiceViewModelProvider.notifier).addScannedProduct(code);
+  }
+
+  Future<void> _sendEmail(BuildContext context, WidgetRef ref) async {
+    final state = ref.read(invoiceViewModelProvider);
+    final initialEmail = state.emission?.receptorCorreo;
+    final email = initialEmail?.trim().isNotEmpty == true
+        ? initialEmail!.trim()
+        : await showDialog<String>(
+            context: context,
+            builder: (context) => const _EmailDialog(),
+          );
+
+    if (email == null || !context.mounted) {
+      return;
+    }
+
+    final result = await ref
+        .read(invoiceViewModelProvider.notifier)
+        .resendEmail(email);
+    if (context.mounted && result != null) {
+      _showSnack(context, result.displayMessage);
+    }
   }
 }
 
@@ -1150,10 +1183,62 @@ class _ShareTile extends StatelessWidget {
   }
 }
 
+class _EmailDialog extends StatefulWidget {
+  const _EmailDialog();
+
+  @override
+  State<_EmailDialog> createState() => _EmailDialogState();
+}
+
+class _EmailDialogState extends State<_EmailDialog> {
+  final _controller = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Enviar DTE'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.emailAddress,
+        decoration: InputDecoration(
+          labelText: 'Correo destinatario',
+          errorText: _error,
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Enviar')),
+      ],
+    );
+  }
+
+  void _submit() {
+    final email = _controller.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _error = 'Ingresa un correo valido.');
+      return;
+    }
+    Navigator.of(context).pop(email);
+  }
+}
+
 class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
+  const _ErrorBanner({required this.message, this.traceId});
 
   final String message;
+  final String? traceId;
 
   @override
   Widget build(BuildContext context) {
@@ -1174,13 +1259,29 @@ class _ErrorBanner extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: AppColors.danger,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message,
+                    style: const TextStyle(
+                      color: AppColors.danger,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (traceId != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'traceId: $traceId',
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
