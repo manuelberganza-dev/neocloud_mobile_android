@@ -24,6 +24,7 @@ IconData appIcon(String name) {
     'camera' => Icons.camera_alt_rounded,
     'cloud' => Icons.cloud_done_rounded,
     'qr' => Icons.qr_code_2_rounded,
+    'pos' => Icons.point_of_sale_rounded,
     _ => Icons.circle_rounded,
   };
 }

@@ -292,6 +292,7 @@ const _defaultActions = [
     tone: 'purple',
     route: '/invoice',
   ),
+  DashboardAction(label: 'Venta POS', icon: 'pos', tone: 'blue', route: '/pos'),
   DashboardAction(
     label: 'Nuevo cliente',
     icon: 'client',

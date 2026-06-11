@@ -90,4 +90,12 @@ class ApiEndpoints {
   static String scanAiRegistrarDteRecibido(int id) =>
       '/api/scanai/documentos/$id/registrar-dte-recibido';
   static String scanAiRechazar(int id) => '/api/scanai/documentos/$id/rechazar';
+
+  static const posVentas = '/api/pos/ventas';
+  static const posResumen = '/api/pos/resumen';
+  static String posVenta(int id) => '/api/pos/ventas/$id';
+  static String posVentaAnular(int id) => '/api/pos/ventas/$id/anular';
+  static String posVentaTicket(int id) => '/api/pos/ventas/$id/ticket';
+  static String posVentaEnviar(int id) => '/api/pos/ventas/$id/enviar';
+  static String posVentaPromover(int id) => '/api/pos/ventas/$id/promover';
 }
