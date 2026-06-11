@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/neo_card.dart';
@@ -21,6 +22,7 @@ class NeoScanScreen extends ConsumerStatefulWidget {
 
 class _NeoScanScreenState extends ConsumerState<NeoScanScreen> {
   final _searchController = TextEditingController();
+  final _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -53,6 +55,13 @@ class _NeoScanScreenState extends ConsumerState<NeoScanScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
+            tooltip: 'Tomar foto',
+            onPressed: canView && !state.isUploading
+                ? () => _takePhotoAndUpload(context)
+                : null,
+            icon: const Icon(Icons.photo_camera_rounded, color: Colors.white),
+          ),
+          IconButton(
             tooltip: 'Subir imagen/PDF',
             onPressed: canView && !state.isUploading
                 ? () => _pickAndUpload(context)
@@ -81,6 +90,7 @@ class _NeoScanScreenState extends ConsumerState<NeoScanScreen> {
               children: [
                 _CapturePanel(
                   isUploading: state.isUploading,
+                  onTakePhoto: () => _takePhotoAndUpload(context),
                   onUpload: () => _pickAndUpload(context),
                 ),
                 const SizedBox(height: 12),
@@ -164,9 +174,38 @@ class _NeoScanScreenState extends ConsumerState<NeoScanScreen> {
       return;
     }
 
-    final bytes = await file.readAsBytes();
+    await _uploadBytes(
+      name: file.name,
+      contentType: file.mimeType ?? _contentTypeFromName(file.name),
+      bytes: await file.readAsBytes(),
+    );
+  }
+
+  Future<void> _takePhotoAndUpload(BuildContext context) async {
+    final photo = await _imagePicker.pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.rear,
+      imageQuality: 88,
+      maxWidth: 1800,
+    );
+    if (photo == null) {
+      return;
+    }
+
+    await _uploadBytes(
+      name: photo.name.isEmpty ? _cameraFileName() : photo.name,
+      contentType: photo.mimeType ?? 'image/jpeg',
+      bytes: await photo.readAsBytes(),
+    );
+  }
+
+  Future<void> _uploadBytes({
+    required String name,
+    required String contentType,
+    required List<int> bytes,
+  }) async {
     if (bytes.isEmpty) {
-      if (context.mounted) {
+      if (mounted) {
         _showSnack(context, 'El archivo esta vacio.');
       }
       return;
@@ -176,13 +215,13 @@ class _NeoScanScreenState extends ConsumerState<NeoScanScreen> {
         .read(neoScanViewModelProvider.notifier)
         .upload(
           ScanUploadRequest(
-            nombre: file.name,
-            contentType: file.mimeType ?? _contentTypeFromName(file.name),
+            nombre: name,
+            contentType: contentType,
             contenidoBase64: base64Encode(bytes),
           ),
         );
 
-    if (!context.mounted) {
+    if (!mounted) {
       return;
     }
     _showSnack(
@@ -283,17 +322,23 @@ class _NeoScanScreenState extends ConsumerState<NeoScanScreen> {
 }
 
 class _CapturePanel extends StatelessWidget {
-  const _CapturePanel({required this.isUploading, required this.onUpload});
+  const _CapturePanel({
+    required this.isUploading,
+    required this.onTakePhoto,
+    required this.onUpload,
+  });
 
   final bool isUploading;
+  final VoidCallback onTakePhoto;
   final VoidCallback onUpload;
 
   @override
   Widget build(BuildContext context) {
     return NeoCard(
-      child: Row(
-        children: [
-          Container(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 520;
+          final icon = Container(
             width: 52,
             height: 52,
             decoration: BoxDecoration(
@@ -304,34 +349,69 @@ class _CapturePanel extends StatelessWidget {
               Icons.document_scanner_rounded,
               color: AppColors.purple,
             ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
+          );
+          const copy = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Capturar imagen/PDF',
+                style: TextStyle(
+                  color: AppColors.navy,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'El OCR puede venir vacio; corrige manualmente antes de confirmar.',
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
+            ],
+          );
+          final actions = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: compact ? WrapAlignment.start : WrapAlignment.end,
+            children: [
+              FilledButton.icon(
+                onPressed: isUploading ? null : onTakePhoto,
+                icon: const Icon(Icons.photo_camera_rounded),
+                label: const Text('Camara'),
+              ),
+              OutlinedButton.icon(
+                onPressed: isUploading ? null : onUpload,
+                icon: const Icon(Icons.add_photo_alternate_rounded),
+                label: const Text('Subir'),
+              ),
+            ],
+          );
+
+          if (compact) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Capturar imagen/PDF',
-                  style: TextStyle(
-                    color: AppColors.navy,
-                    fontWeight: FontWeight.w900,
-                  ),
+                Row(
+                  children: [
+                    icon,
+                    const SizedBox(width: 12),
+                    Expanded(child: copy),
+                  ],
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'El OCR puede venir vacio; corrige manualmente antes de confirmar.',
-                  style: TextStyle(color: AppColors.muted, fontSize: 12),
-                ),
+                const SizedBox(height: 12),
+                actions,
               ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: isUploading ? null : onUpload,
-            icon: const Icon(Icons.add_photo_alternate_rounded),
-            label: const Text('Subir'),
-          ),
-        ],
+            );
+          }
+
+          return Row(
+            children: [
+              icon,
+              const SizedBox(width: 12),
+              Expanded(child: copy),
+              const SizedBox(width: 8),
+              actions,
+            ],
+          );
+        },
       ),
     );
   }
@@ -1096,6 +1176,13 @@ String _contentTypeFromName(String name) {
     return 'image/png';
   }
   return 'image/jpeg';
+}
+
+String _cameraFileName() {
+  final now = DateTime.now();
+  String two(int value) => value.toString().padLeft(2, '0');
+  return 'neoscan_${now.year}${two(now.month)}${two(now.day)}_'
+      '${two(now.hour)}${two(now.minute)}${two(now.second)}.jpg';
 }
 
 String _money(double? value) {
