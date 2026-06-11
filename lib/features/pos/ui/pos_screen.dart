@@ -110,6 +110,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     onSearch: notifier.searchSales,
                     onSelect: notifier.selectSale,
                     onLoadMore: notifier.loadMore,
+                    onPreviewTicket: _previewTicket,
                     onDownloadTicket: _downloadTicket,
                     onShareTicket: _shareTicket,
                     onSendEmail: _sendTicket,
@@ -142,6 +143,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               onSearch: notifier.searchSales,
               onSelect: notifier.selectSale,
               onLoadMore: notifier.loadMore,
+              onPreviewTicket: _previewTicket,
               onDownloadTicket: _downloadTicket,
               onShareTicket: _shareTicket,
               onSendEmail: _sendTicket,
@@ -212,8 +214,54 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         .read(posViewModelProvider.notifier)
         .downloadTicket(sale);
     if (mounted && path != null) {
-      _showSnack(context, 'Ticket descargado: $path');
+      await _showTicketSavedDialog(sale, path);
     }
+  }
+
+  Future<void> _showTicketSavedDialog(PosSale sale, String path) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ticket PDF'),
+        content: Text(
+          'El ticket se guardo en documentos de la app.\n\n$path',
+          style: const TextStyle(color: AppColors.ink),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _shareTicket(sale);
+            },
+            icon: const Icon(Icons.ios_share_rounded),
+            label: const Text('Compartir'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _previewTicket(PosSale sale) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => _TicketPreviewSheet(
+        sale: sale,
+        onSharePdf: () {
+          Navigator.of(context).pop();
+          _shareTicket(sale);
+        },
+        onDownloadPdf: () {
+          Navigator.of(context).pop();
+          _downloadTicket(sale);
+        },
+      ),
+    );
   }
 
   Future<void> _shareTicket(PosSale sale) async {
@@ -967,22 +1015,19 @@ class _CartLine extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                '${line.cantidad.toStringAsFixed(0)} x ${posMoney(line.precioUnitario)}',
+                '${posMoney(line.precioUnitario)} c/u',
                 style: const TextStyle(color: AppColors.muted, fontSize: 12),
               ),
             ],
           ),
         ),
-        IconButton(
-          tooltip: 'Restar',
-          onPressed: onSubtract,
-          icon: const Icon(Icons.remove_circle_outline_rounded),
+        const SizedBox(width: 8),
+        _QuantityControl(
+          quantity: line.cantidad,
+          onSubtract: onSubtract,
+          onAdd: onAdd,
         ),
-        IconButton(
-          tooltip: 'Sumar',
-          onPressed: onAdd,
-          icon: const Icon(Icons.add_circle_outline_rounded),
-        ),
+        const SizedBox(width: 8),
         Text(
           posMoney(line.total),
           style: const TextStyle(
@@ -1000,6 +1045,68 @@ class _CartLine extends StatelessWidget {
   }
 }
 
+class _QuantityControl extends StatelessWidget {
+  const _QuantityControl({
+    required this.quantity,
+    required this.onSubtract,
+    required this.onAdd,
+  });
+
+  final double quantity;
+  final VoidCallback onSubtract;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = quantity % 1 == 0
+        ? quantity.toStringAsFixed(0)
+        : quantity.toStringAsFixed(2);
+
+    return Container(
+      height: 34,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Restar',
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            onPressed: onSubtract,
+            icon: const Icon(Icons.remove_rounded, size: 18),
+          ),
+          SizedBox(
+            width: 38,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.navy,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Sumar',
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_rounded, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _HistoryPanel extends StatelessWidget {
   const _HistoryPanel({
     required this.state,
@@ -1007,6 +1114,7 @@ class _HistoryPanel extends StatelessWidget {
     required this.onSearch,
     required this.onSelect,
     required this.onLoadMore,
+    required this.onPreviewTicket,
     required this.onDownloadTicket,
     required this.onShareTicket,
     required this.onSendEmail,
@@ -1019,6 +1127,7 @@ class _HistoryPanel extends StatelessWidget {
   final ValueChanged<String> onSearch;
   final ValueChanged<PosSale> onSelect;
   final VoidCallback onLoadMore;
+  final ValueChanged<PosSale> onPreviewTicket;
   final ValueChanged<PosSale> onDownloadTicket;
   final ValueChanged<PosSale> onShareTicket;
   final ValueChanged<PosSale> onSendEmail;
@@ -1091,6 +1200,7 @@ class _HistoryPanel extends StatelessWidget {
               state.isSendingEmail ||
               state.isPromoting ||
               state.isSubmitting,
+          onPreview: onPreviewTicket,
           onDownload: onDownloadTicket,
           onShare: onShareTicket,
           onEmail: onSendEmail,
@@ -1163,6 +1273,7 @@ class _TicketPanel extends StatelessWidget {
   const _TicketPanel({
     required this.sale,
     required this.isBusy,
+    required this.onPreview,
     required this.onDownload,
     required this.onShare,
     required this.onEmail,
@@ -1172,6 +1283,7 @@ class _TicketPanel extends StatelessWidget {
 
   final PosSale? sale;
   final bool isBusy;
+  final ValueChanged<PosSale> onPreview;
   final ValueChanged<PosSale> onDownload;
   final ValueChanged<PosSale> onShare;
   final ValueChanged<PosSale> onEmail;
@@ -1232,9 +1344,14 @@ class _TicketPanel extends StatelessWidget {
             runSpacing: 8,
             children: [
               OutlinedButton.icon(
+                onPressed: isBusy ? null : () => onPreview(sale),
+                icon: const Icon(Icons.receipt_long_rounded),
+                label: const Text('Ver'),
+              ),
+              OutlinedButton.icon(
                 onPressed: isBusy ? null : () => onDownload(sale),
                 icon: const Icon(Icons.picture_as_pdf_rounded),
-                label: const Text('Ticket'),
+                label: const Text('PDF'),
               ),
               OutlinedButton.icon(
                 onPressed: isBusy ? null : () => onShare(sale),
@@ -1434,6 +1551,193 @@ class _DteTypeDialogState extends State<_DteTypeDialog> {
           child: const Text('Convertir'),
         ),
       ],
+    );
+  }
+}
+
+class _TicketPreviewSheet extends StatelessWidget {
+  const _TicketPreviewSheet({
+    required this.sale,
+    required this.onSharePdf,
+    required this.onDownloadPdf,
+  });
+
+  final PosSale sale;
+  final VoidCallback onSharePdf;
+  final VoidCallback onDownloadPdf;
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.78,
+      minChildSize: 0.45,
+      maxChildSize: 0.92,
+      builder: (context, controller) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+          child: Column(
+            children: [
+              const _SheetHandle(),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Vista del ticket',
+                      style: TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Cerrar',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: controller,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 360),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.line),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                'NeoCloud Mobile',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: AppColors.navy,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                sale.title,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: AppColors.ink,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                sale.customerLabel,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: AppColors.muted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              if (sale.dateLabel.isNotEmpty)
+                                Text(
+                                  sale.dateLabel,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              const Divider(height: 24),
+                              for (final line in sale.lineas) ...[
+                                Text(
+                                  line.descripcion,
+                                  style: const TextStyle(
+                                    color: AppColors.ink,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '${_qty(line.cantidad)} x ${posMoney(line.precioUnitario)}',
+                                        style: const TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      posMoney(line.total),
+                                      style: const TextStyle(
+                                        color: AppColors.ink,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                              const Divider(height: 24),
+                              _TotalRow(
+                                label: 'Subtotal',
+                                value: posMoney(sale.subtotal),
+                              ),
+                              _TotalRow(
+                                label: 'Descuento',
+                                value: posMoney(sale.descuento),
+                              ),
+                              _TotalRow(
+                                label: 'IVA',
+                                value: posMoney(sale.iva),
+                              ),
+                              _TotalRow(
+                                label: 'Total',
+                                value: posMoney(sale.total),
+                                strong: true,
+                              ),
+                              const SizedBox(height: 14),
+                              StatusChip(
+                                label: sale.estadoCodigo,
+                                tone: posStatusTone(sale.estadoCodigo),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onDownloadPdf,
+                      icon: const Icon(Icons.picture_as_pdf_rounded),
+                      label: const Text('PDF'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: onSharePdf,
+                      icon: const Icon(Icons.chat_rounded),
+                      label: const Text('Compartir'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1689,4 +1993,8 @@ void _showSnack(BuildContext context, String message) {
 
 double _decimal(String value) {
   return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
+}
+
+String _qty(double value) {
+  return value % 1 == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
 }

@@ -396,7 +396,7 @@ class PosViewModel extends Notifier<PosState> {
   }
 
   Future<String> _writeTicket(PosSale sale, List<int> bytes) async {
-    final dir = await getTemporaryDirectory();
+    final dir = await getApplicationDocumentsDirectory();
     final file = File('${dir.path}/ticket_${sale.id}.pdf');
     await file.writeAsBytes(bytes, flush: true);
     return file.path;
