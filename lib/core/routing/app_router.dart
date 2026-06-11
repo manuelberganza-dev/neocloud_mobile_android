@@ -76,11 +76,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     name: 'notifications',
                     builder: (context, state) => const NotificationsScreen(),
                   ),
-                  GoRoute(
-                    path: 'pos',
-                    name: 'pos',
-                    builder: (context, state) => const PosScreen(),
-                  ),
                 ],
               ),
             ],
@@ -91,6 +86,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/invoice',
                 name: 'invoice',
                 builder: (context, state) => const InvoiceScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/pos',
+                name: 'pos',
+                builder: (context, state) => const PosScreen(),
               ),
             ],
           ),
