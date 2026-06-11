@@ -98,4 +98,9 @@ class ApiEndpoints {
   static String posVentaTicket(int id) => '/api/pos/ventas/$id/ticket';
   static String posVentaEnviar(int id) => '/api/pos/ventas/$id/enviar';
   static String posVentaPromover(int id) => '/api/pos/ventas/$id/promover';
+  static const posCajaEstado = '/api/pos/caja/estado';
+  static const posCaja = '/api/pos/caja';
+  static const posCajaAbrir = '/api/pos/caja/abrir';
+  static String posCajaDetalle(int id) => '/api/pos/caja/$id';
+  static String posCajaCerrar(int id) => '/api/pos/caja/$id/cerrar';
 }

@@ -349,23 +349,160 @@ class PosPromotionResult {
   }
 }
 
+class PosCashSession {
+  const PosCashSession({
+    required this.id,
+    required this.numero,
+    required this.estadoCodigo,
+    required this.montoInicial,
+    required this.ventas,
+    required this.totalVentas,
+    required this.totalEfectivo,
+    required this.totalTarjeta,
+    required this.totalOtros,
+    required this.efectivoEsperado,
+    this.sucursalId,
+    this.puntoVentaId,
+    this.abiertaAt,
+    this.abiertaPor,
+    this.cerradaAt,
+    this.montoEsperado,
+    this.montoContado,
+    this.diferencia,
+    this.cerradaPor,
+    this.nota,
+  });
+
+  final int id;
+  final String numero;
+  final String estadoCodigo;
+  final int? sucursalId;
+  final int? puntoVentaId;
+  final DateTime? abiertaAt;
+  final double montoInicial;
+  final String? abiertaPor;
+  final DateTime? cerradaAt;
+  final double? montoEsperado;
+  final double? montoContado;
+  final double? diferencia;
+  final String? cerradaPor;
+  final String? nota;
+  final int ventas;
+  final double totalVentas;
+  final double totalEfectivo;
+  final double totalTarjeta;
+  final double totalOtros;
+  final double efectivoEsperado;
+
+  bool get isOpen => estadoCodigo.toUpperCase() == 'ABIERTA';
+  String get title => numero.trim().isEmpty ? 'Caja #$id' : numero;
+  String get openedLabel => _shortDateTime(abiertaAt);
+  String get closedLabel => _shortDateTime(cerradaAt);
+  String get differenceTone {
+    final value = diferencia ?? 0;
+    if (value.abs() < 0.01) {
+      return 'green';
+    }
+    return value < 0 ? 'danger' : 'orange';
+  }
+
+  factory PosCashSession.fromJson(Object? json) {
+    final map = json as Map<String, dynamic>;
+    return PosCashSession(
+      id: _int(map, 'id', 'Id'),
+      numero: _textAny(map, const ['numero', 'Numero']) ?? 'CAJA',
+      estadoCodigo:
+          _textAny(map, const ['estadoCodigo', 'estado', 'EstadoCodigo']) ??
+          'ABIERTA',
+      sucursalId: _nullableInt(map, 'sucursalId', 'SucursalId'),
+      puntoVentaId: _nullableInt(map, 'puntoVentaId', 'PuntoVentaId'),
+      abiertaAt: _dateAny(map, const ['abiertaAt', 'AbiertaAt']),
+      montoInicial: _doubleAny(map, const ['montoInicial', 'MontoInicial']),
+      abiertaPor: _textAny(map, const ['abiertaPor', 'AbiertaPor']),
+      cerradaAt: _dateAny(map, const ['cerradaAt', 'CerradaAt']),
+      montoEsperado: _nullableDoubleAny(map, const [
+        'montoEsperado',
+        'MontoEsperado',
+      ]),
+      montoContado: _nullableDoubleAny(map, const [
+        'montoContado',
+        'MontoContado',
+      ]),
+      diferencia: _nullableDoubleAny(map, const ['diferencia', 'Diferencia']),
+      cerradaPor: _textAny(map, const ['cerradaPor', 'CerradaPor']),
+      nota: _textAny(map, const ['nota', 'Nota']),
+      ventas: _intAny(map, const ['ventas', 'Ventas']),
+      totalVentas: _doubleAny(map, const ['totalVentas', 'TotalVentas']),
+      totalEfectivo: _doubleAny(map, const ['totalEfectivo', 'TotalEfectivo']),
+      totalTarjeta: _doubleAny(map, const ['totalTarjeta', 'TotalTarjeta']),
+      totalOtros: _doubleAny(map, const ['totalOtros', 'TotalOtros']),
+      efectivoEsperado: _doubleAny(map, const [
+        'efectivoEsperado',
+        'EfectivoEsperado',
+      ]),
+    );
+  }
+}
+
+class PosOpenCashRequest {
+  const PosOpenCashRequest({
+    required this.montoInicial,
+    this.sucursalId,
+    this.puntoVentaId,
+    this.nota,
+  });
+
+  final double montoInicial;
+  final int? sucursalId;
+  final int? puntoVentaId;
+  final String? nota;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'montoInicial': montoInicial,
+      'sucursalId': sucursalId,
+      'puntoVentaId': puntoVentaId,
+      'nota': _blankToNull(nota),
+    };
+  }
+}
+
+class PosCloseCashRequest {
+  const PosCloseCashRequest({required this.montoContado, this.nota});
+
+  final double montoContado;
+  final String? nota;
+
+  Map<String, dynamic> toJson() {
+    return {'montoContado': montoContado, 'nota': _blankToNull(nota)};
+  }
+}
+
 class PosState {
   const PosState({
     required this.summary,
     required this.sales,
+    required this.cashHistory,
     required this.query,
     required this.draft,
     required this.productResults,
     required this.total,
     required this.totalPages,
+    required this.cashTotal,
+    required this.cashTotalPages,
     required this.isLoading,
     required this.isLoadingMore,
+    required this.isLoadingCash,
+    required this.isOpeningCash,
+    required this.isClosingCash,
     required this.isSearchingProducts,
     required this.isSubmitting,
     required this.isTicketBusy,
     required this.isSendingEmail,
     required this.isPromoting,
     this.selectedSale,
+    this.currentCash,
+    this.selectedCash,
     this.lastPromotion,
     this.ticketPath,
     this.errorMessage,
@@ -375,16 +512,24 @@ class PosState {
 
   final PosSummary summary;
   final List<PosSale> sales;
+  final List<PosCashSession> cashHistory;
   final PosQuery query;
   final PosSaleDraft draft;
   final List<InvoiceLookupOption> productResults;
   final PosSale? selectedSale;
+  final PosCashSession? currentCash;
+  final PosCashSession? selectedCash;
   final PosPromotionResult? lastPromotion;
   final String? ticketPath;
   final int total;
   final int totalPages;
+  final int cashTotal;
+  final int cashTotalPages;
   final bool isLoading;
   final bool isLoadingMore;
+  final bool isLoadingCash;
+  final bool isOpeningCash;
+  final bool isClosingCash;
   final bool isSearchingProducts;
   final bool isSubmitting;
   final bool isTicketBusy;
@@ -397,6 +542,9 @@ class PosState {
   bool get hasMore => query.page < totalPages;
   bool get isBusy =>
       isLoading ||
+      isLoadingCash ||
+      isOpeningCash ||
+      isClosingCash ||
       isSubmitting ||
       isTicketBusy ||
       isSendingEmail ||
@@ -406,13 +554,19 @@ class PosState {
     return PosState(
       summary: PosSummary.empty(),
       sales: const [],
+      cashHistory: const [],
       query: const PosQuery(),
       draft: const PosSaleDraft(lineas: []),
       productResults: const [],
       total: 0,
       totalPages: 0,
+      cashTotal: 0,
+      cashTotalPages: 0,
       isLoading: false,
       isLoadingMore: false,
+      isLoadingCash: false,
+      isOpeningCash: false,
+      isClosingCash: false,
       isSearchingProducts: false,
       isSubmitting: false,
       isTicketBusy: false,
@@ -424,16 +578,24 @@ class PosState {
   PosState copyWith({
     PosSummary? summary,
     List<PosSale>? sales,
+    List<PosCashSession>? cashHistory,
     PosQuery? query,
     PosSaleDraft? draft,
     List<InvoiceLookupOption>? productResults,
     Object? selectedSale = _unset,
+    Object? currentCash = _unset,
+    Object? selectedCash = _unset,
     Object? lastPromotion = _unset,
     Object? ticketPath = _unset,
     int? total,
     int? totalPages,
+    int? cashTotal,
+    int? cashTotalPages,
     bool? isLoading,
     bool? isLoadingMore,
+    bool? isLoadingCash,
+    bool? isOpeningCash,
+    bool? isClosingCash,
     bool? isSearchingProducts,
     bool? isSubmitting,
     bool? isTicketBusy,
@@ -446,12 +608,19 @@ class PosState {
     return PosState(
       summary: summary ?? this.summary,
       sales: sales ?? this.sales,
+      cashHistory: cashHistory ?? this.cashHistory,
       query: query ?? this.query,
       draft: draft ?? this.draft,
       productResults: productResults ?? this.productResults,
       selectedSale: selectedSale == _unset
           ? this.selectedSale
           : selectedSale as PosSale?,
+      currentCash: currentCash == _unset
+          ? this.currentCash
+          : currentCash as PosCashSession?,
+      selectedCash: selectedCash == _unset
+          ? this.selectedCash
+          : selectedCash as PosCashSession?,
       lastPromotion: lastPromotion == _unset
           ? this.lastPromotion
           : lastPromotion as PosPromotionResult?,
@@ -460,8 +629,13 @@ class PosState {
           : ticketPath as String?,
       total: total ?? this.total,
       totalPages: totalPages ?? this.totalPages,
+      cashTotal: cashTotal ?? this.cashTotal,
+      cashTotalPages: cashTotalPages ?? this.cashTotalPages,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      isLoadingCash: isLoadingCash ?? this.isLoadingCash,
+      isOpeningCash: isOpeningCash ?? this.isOpeningCash,
+      isClosingCash: isClosingCash ?? this.isClosingCash,
       isSearchingProducts: isSearchingProducts ?? this.isSearchingProducts,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       isTicketBusy: isTicketBusy ?? this.isTicketBusy,
@@ -491,6 +665,16 @@ class PosState {
       traceId: null,
     );
   }
+
+  PosState withCashPage(PagedResult<PosCashSession> page) {
+    return copyWith(
+      cashHistory: page.items,
+      selectedCash: selectedCash ?? page.items.firstOrNull,
+      cashTotal: page.total,
+      cashTotalPages: page.totalPages,
+      isLoadingCash: false,
+    );
+  }
 }
 
 String posStatusTone(String status) {
@@ -511,6 +695,18 @@ String _shortDate(DateTime? value) {
   final day = local.day.toString().padLeft(2, '0');
   final month = local.month.toString().padLeft(2, '0');
   return '$day/$month/${local.year}';
+}
+
+String _shortDateTime(DateTime? value) {
+  if (value == null) {
+    return '';
+  }
+  final local = value.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$day/$month/${local.year} $hour:$minute';
 }
 
 String? _blankToNull(String? value) {

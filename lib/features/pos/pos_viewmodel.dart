@@ -36,9 +36,16 @@ class PosViewModel extends Notifier<PosState> {
       final repository = ref.read(posRepositoryProvider);
       final summary = await repository.getSummary();
       final page = await repository.listSales(query);
+      final currentCash = await repository.getCashStatus();
+      final cashPage = await repository.listCashSessions();
       state = state
-          .copyWith(summary: summary, isLoading: false)
-          .withPage(page, false);
+          .copyWith(
+            summary: summary,
+            currentCash: currentCash,
+            isLoading: false,
+          )
+          .withPage(page, false)
+          .withCashPage(cashPage);
     } catch (error) {
       _setError(error, isLoading: false);
     }
@@ -78,6 +85,85 @@ class PosViewModel extends Notifier<PosState> {
       _replaceSale(fresh);
     } catch (error) {
       _setError(error);
+    }
+  }
+
+  Future<void> loadCash() async {
+    state = state.copyWith(isLoadingCash: true, errorMessage: null);
+    try {
+      final repository = ref.read(posRepositoryProvider);
+      final current = await repository.getCashStatus();
+      final page = await repository.listCashSessions();
+      state = state
+          .copyWith(currentCash: current, isLoadingCash: false)
+          .withCashPage(page);
+    } catch (error) {
+      _setError(error, isLoadingCash: false);
+    }
+  }
+
+  Future<void> selectCash(PosCashSession cash) async {
+    state = state.copyWith(selectedCash: cash, errorMessage: null);
+    try {
+      final fresh = await ref
+          .read(posRepositoryProvider)
+          .getCashSession(cash.id);
+      _replaceCash(fresh);
+    } catch (error) {
+      _setError(error);
+    }
+  }
+
+  Future<PosCashSession?> openCash(PosOpenCashRequest request) async {
+    state = state.copyWith(
+      isOpeningCash: true,
+      errorMessage: null,
+      successMessage: null,
+    );
+    try {
+      final cash = await ref.read(posRepositoryProvider).openCash(request);
+      state = state.copyWith(
+        currentCash: cash,
+        selectedCash: cash,
+        cashHistory: [cash, ...state.cashHistory],
+        cashTotal: state.cashTotal + 1,
+        isOpeningCash: false,
+        successMessage: 'Caja abierta correctamente.',
+      );
+      return cash;
+    } catch (error) {
+      _setError(error, isOpeningCash: false);
+      return null;
+    }
+  }
+
+  Future<PosCashSession?> closeCash(PosCloseCashRequest request) async {
+    final cash = state.currentCash;
+    if (cash == null) {
+      state = state.copyWith(errorMessage: 'No hay una caja abierta.');
+      return null;
+    }
+    state = state.copyWith(
+      isClosingCash: true,
+      errorMessage: null,
+      successMessage: null,
+    );
+    try {
+      final closed = await ref
+          .read(posRepositoryProvider)
+          .closeCash(cash.id, request);
+      state = state.copyWith(
+        currentCash: null,
+        selectedCash: closed,
+        isClosingCash: false,
+        successMessage:
+            'Caja cerrada. Diferencia ${posMoney(closed.diferencia ?? 0)}.',
+      );
+      _replaceCash(closed, isClosingCash: false);
+      return closed;
+    } catch (error) {
+      _setError(error, isClosingCash: false);
+      return null;
     }
   }
 
@@ -332,10 +418,29 @@ class PosViewModel extends Notifier<PosState> {
     );
   }
 
+  void _replaceCash(PosCashSession cash, {bool? isClosingCash}) {
+    final exists = state.cashHistory.any((item) => item.id == cash.id);
+    final items = [
+      for (final item in state.cashHistory)
+        if (item.id == cash.id) cash else item,
+    ];
+    state = state.copyWith(
+      cashHistory: exists ? items : [cash, ...state.cashHistory],
+      selectedCash: cash,
+      currentCash: cash.isOpen ? cash : null,
+      isClosingCash: isClosingCash,
+      errorMessage: null,
+      traceId: null,
+    );
+  }
+
   void _setError(
     Object error, {
     bool? isLoading,
     bool? isLoadingMore,
+    bool? isLoadingCash,
+    bool? isOpeningCash,
+    bool? isClosingCash,
     bool? isSearchingProducts,
     bool? isSubmitting,
     bool? isTicketBusy,
@@ -345,6 +450,9 @@ class PosViewModel extends Notifier<PosState> {
     state = state.copyWith(
       isLoading: isLoading,
       isLoadingMore: isLoadingMore,
+      isLoadingCash: isLoadingCash,
+      isOpeningCash: isOpeningCash,
+      isClosingCash: isClosingCash,
       isSearchingProducts: isSearchingProducts,
       isSubmitting: isSubmitting,
       isTicketBusy: isTicketBusy,

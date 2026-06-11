@@ -58,6 +58,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SummaryRow(summary: state.summary),
+          const SizedBox(height: 12),
+          _CashPanel(
+            state: state,
+            onOpen: _openCash,
+            onClose: _closeCash,
+            onRefresh: notifier.loadCash,
+            onSelect: notifier.selectCash,
+          ),
           if (state.errorMessage != null) ...[
             const SizedBox(height: 12),
             _MessageCard(
@@ -163,6 +171,39 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final sale = await ref.read(posViewModelProvider.notifier).createSale();
     if (mounted && sale != null) {
       _showSnack(context, 'Venta ${sale.title} creada.');
+    }
+  }
+
+  Future<void> _openCash() async {
+    final request = await showDialog<PosOpenCashRequest>(
+      context: context,
+      builder: (context) => const _OpenCashDialog(),
+    );
+    if (request == null || !mounted) {
+      return;
+    }
+    final cash = await ref
+        .read(posViewModelProvider.notifier)
+        .openCash(request);
+    if (mounted && cash != null) {
+      _showSnack(context, 'Caja ${cash.title} abierta.');
+    }
+  }
+
+  Future<void> _closeCash() async {
+    final current = ref.read(posViewModelProvider).currentCash;
+    final request = await showDialog<PosCloseCashRequest>(
+      context: context,
+      builder: (context) => _CloseCashDialog(cash: current),
+    );
+    if (request == null || !mounted) {
+      return;
+    }
+    final cash = await ref
+        .read(posViewModelProvider.notifier)
+        .closeCash(request);
+    if (mounted && cash != null) {
+      _showSnack(context, 'Diferencia ${posMoney(cash.diferencia ?? 0)}.');
     }
   }
 
@@ -311,6 +352,336 @@ class _SummaryTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CashPanel extends StatelessWidget {
+  const _CashPanel({
+    required this.state,
+    required this.onOpen,
+    required this.onClose,
+    required this.onRefresh,
+    required this.onSelect,
+  });
+
+  final PosState state;
+  final VoidCallback onOpen;
+  final VoidCallback onClose;
+  final VoidCallback onRefresh;
+  final ValueChanged<PosCashSession> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final cash = state.currentCash;
+    final selected = state.selectedCash ?? cash;
+
+    return NeoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Caja POS',
+                  style: TextStyle(
+                    color: AppColors.navy,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Actualizar caja',
+                onPressed: state.isLoadingCash ? null : onRefresh,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+          if (cash == null)
+            _ClosedCashState(isOpening: state.isOpeningCash, onOpen: onOpen)
+          else
+            _OpenCashState(
+              cash: cash,
+              isClosing: state.isClosingCash,
+              onClose: onClose,
+            ),
+          if (selected != null) ...[
+            const SizedBox(height: 12),
+            _CashTotals(cash: selected),
+          ],
+          if (state.cashHistory.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Turnos recientes',
+              style: TextStyle(
+                color: AppColors.navy,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (final item in state.cashHistory.take(3)) ...[
+              _CashHistoryTile(
+                cash: item,
+                selected: selected?.id == item.id,
+                onTap: () => onSelect(item),
+              ),
+              if (item != state.cashHistory.take(3).last)
+                const Divider(height: 12),
+            ],
+          ],
+          if (state.isLoadingCash) ...[
+            const SizedBox(height: 10),
+            const LinearProgressIndicator(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ClosedCashState extends StatelessWidget {
+  const _ClosedCashState({required this.isOpening, required this.onOpen});
+
+  final bool isOpening;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            'No hay caja abierta para vender.',
+            style: TextStyle(color: AppColors.muted),
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: isOpening ? null : onOpen,
+          icon: const Icon(Icons.lock_open_rounded),
+          label: const Text('Abrir caja'),
+        ),
+      ],
+    );
+  }
+}
+
+class _OpenCashState extends StatelessWidget {
+  const _OpenCashState({
+    required this.cash,
+    required this.isClosing,
+    required this.onClose,
+  });
+
+  final PosCashSession cash;
+  final bool isClosing;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  StatusChip(label: cash.estadoCodigo, tone: 'green'),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      cash.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.ink,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (cash.openedLabel.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  'Abierta ${cash.openedLabel}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: isClosing ? null : onClose,
+          icon: const Icon(Icons.lock_rounded),
+          label: const Text('Cerrar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CashTotals extends StatelessWidget {
+  const _CashTotals({required this.cash});
+
+  final PosCashSession cash;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _MiniMetric(
+                label: 'Fondo inicial',
+                value: posMoney(cash.montoInicial),
+                color: AppColors.purple,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MiniMetric(
+                label: 'Ventas turno',
+                value: cash.ventas.toString(),
+                color: AppColors.blue,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MiniMetric(
+                label: 'Total vendido',
+                value: posMoney(cash.totalVentas),
+                color: AppColors.green,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _TotalRow(
+          label: 'Efectivo esperado',
+          value: posMoney(cash.efectivoEsperado),
+        ),
+        _TotalRow(label: 'Tarjeta', value: posMoney(cash.totalTarjeta)),
+        _TotalRow(label: 'Otros', value: posMoney(cash.totalOtros)),
+        if (cash.montoContado != null)
+          _TotalRow(
+            label: 'Efectivo contado',
+            value: posMoney(cash.montoContado!),
+          ),
+        if (cash.diferencia != null)
+          _TotalRow(
+            label: 'Diferencia',
+            value: posMoney(cash.diferencia!),
+            strong: true,
+          ),
+      ],
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppColors.muted, fontSize: 10),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CashHistoryTile extends StatelessWidget {
+  const _CashHistoryTile({
+    required this.cash,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final PosCashSession cash;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(
+              cash.isOpen ? Icons.lock_open_rounded : Icons.lock_rounded,
+              color: selected ? AppColors.purple : AppColors.muted,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    cash.title,
+                    style: const TextStyle(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    cash.isOpen ? cash.openedLabel : cash.closedLabel,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            StatusChip(
+              label: cash.estadoCodigo,
+              tone: cash.isOpen ? 'green' : cash.differenceTone,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1067,6 +1438,147 @@ class _DteTypeDialogState extends State<_DteTypeDialog> {
   }
 }
 
+class _OpenCashDialog extends StatefulWidget {
+  const _OpenCashDialog();
+
+  @override
+  State<_OpenCashDialog> createState() => _OpenCashDialogState();
+}
+
+class _OpenCashDialogState extends State<_OpenCashDialog> {
+  final _amount = TextEditingController(text: '0.00');
+  final _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Abrir caja'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _amount,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Fondo inicial'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _note,
+            maxLines: 2,
+            decoration: const InputDecoration(labelText: 'Nota'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(context).pop(
+              PosOpenCashRequest(
+                montoInicial: _decimal(_amount.text),
+                nota: _note.text,
+              ),
+            );
+          },
+          child: const Text('Abrir'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CloseCashDialog extends StatefulWidget {
+  const _CloseCashDialog({required this.cash});
+
+  final PosCashSession? cash;
+
+  @override
+  State<_CloseCashDialog> createState() => _CloseCashDialogState();
+}
+
+class _CloseCashDialogState extends State<_CloseCashDialog> {
+  late final TextEditingController _amount;
+  final _note = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final expected = widget.cash?.efectivoEsperado ?? 0;
+    _amount = TextEditingController(text: expected.toStringAsFixed(2));
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final expected = widget.cash?.efectivoEsperado ?? 0;
+    final counted = _decimal(_amount.text);
+    final difference = counted - expected;
+
+    return AlertDialog(
+      title: const Text('Cerrar caja'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _TotalRow(label: 'Efectivo esperado', value: posMoney(expected)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _amount,
+            keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(labelText: 'Efectivo contado'),
+          ),
+          const SizedBox(height: 10),
+          StatusChip(
+            label: 'Diferencia ${posMoney(difference)}',
+            tone: difference.abs() < 0.01
+                ? 'green'
+                : difference < 0
+                ? 'danger'
+                : 'orange',
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _note,
+            maxLines: 2,
+            decoration: const InputDecoration(labelText: 'Nota'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(
+              context,
+            ).pop(PosCloseCashRequest(montoContado: counted, nota: _note.text));
+          },
+          child: const Text('Cerrar caja'),
+        ),
+      ],
+    );
+  }
+}
+
 class _BarcodeScannerSheet extends StatefulWidget {
   const _BarcodeScannerSheet();
 
@@ -1173,4 +1685,8 @@ class _SheetHandle extends StatelessWidget {
 
 void _showSnack(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+
+double _decimal(String value) {
+  return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
 }

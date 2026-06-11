@@ -36,6 +36,23 @@ class ApiClient {
     }
   }
 
+  Future<T?> getOptionalData<T>(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    required T Function(Object? json) fromJson,
+  }) async {
+    try {
+      final response = await _dio.get<Object?>(
+        path,
+        queryParameters: queryParameters,
+      );
+
+      return _readOptionalApiResponse(response, fromJson);
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
+  }
+
   Future<T> postData<T>(
     String path, {
     Object? data,
@@ -203,6 +220,31 @@ class ApiClient {
     }
 
     return data;
+  }
+
+  T? _readOptionalApiResponse<T>(
+    Response<Object?> response,
+    T Function(Object? json) fromJson,
+  ) {
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw ApiException(
+        message: 'Respuesta inesperada del servidor.',
+        statusCode: response.statusCode,
+      );
+    }
+
+    final envelope = ApiResponse<T>.fromJson(body, fromJson);
+    if (!envelope.success) {
+      throw ApiException(
+        message: envelope.message ?? 'Error de API.',
+        statusCode: response.statusCode,
+        errors: envelope.errors,
+        traceId: envelope.traceId,
+      );
+    }
+
+    return envelope.data;
   }
 
   void _readVoidApiResponse(Response<Object?> response) {

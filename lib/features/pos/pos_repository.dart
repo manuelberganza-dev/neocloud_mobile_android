@@ -74,6 +74,44 @@ class PosRepository {
     );
   }
 
+  Future<PosCashSession?> getCashStatus() {
+    return _api.getOptionalData<PosCashSession>(
+      ApiEndpoints.posCajaEstado,
+      fromJson: PosCashSession.fromJson,
+    );
+  }
+
+  Future<PagedResult<PosCashSession>> listCashSessions() {
+    return _api.getData<PagedResult<PosCashSession>>(
+      ApiEndpoints.posCaja,
+      queryParameters: const {'page': 1, 'pageSize': 10},
+      fromJson: (json) => PagedResult.fromJson(json, PosCashSession.fromJson),
+    );
+  }
+
+  Future<PosCashSession> getCashSession(int id) {
+    return _api.getData<PosCashSession>(
+      ApiEndpoints.posCajaDetalle(id),
+      fromJson: PosCashSession.fromJson,
+    );
+  }
+
+  Future<PosCashSession> openCash(PosOpenCashRequest request) {
+    return _api.postData<PosCashSession>(
+      ApiEndpoints.posCajaAbrir,
+      data: request.toJson(),
+      fromJson: PosCashSession.fromJson,
+    );
+  }
+
+  Future<PosCashSession> closeCash(int id, PosCloseCashRequest request) {
+    return _api.postData<PosCashSession>(
+      ApiEndpoints.posCajaCerrar(id),
+      data: request.toJson(),
+      fromJson: PosCashSession.fromJson,
+    );
+  }
+
   static List<InvoiceLookupOption> _lookupListFromJson(Object? json) {
     final list = json as List<dynamic>? ?? const [];
     return list.map(InvoiceLookupOption.fromJson).toList();
