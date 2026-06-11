@@ -1,48 +1,72 @@
+import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
+import '../../core/network/api_response.dart';
 import 'models/neoscan_models.dart';
 
 class NeoScanRepository {
-  const NeoScanRepository();
+  const NeoScanRepository(this._apiClient);
 
-  NeoScanState loadScanPreview() {
-    return const NeoScanState(
-      fields: [
-        ExtractedField(label: 'Emisor', value: 'Comercial XYZ, S.A.'),
-        ExtractedField(label: 'NIT/NRC', value: '0614-123456-001-0'),
-        ExtractedField(label: 'Fecha', value: '20/05/2026'),
-        ExtractedField(label: 'Monto', value: r'$245.00'),
-        ExtractedField(
-          label: 'Numero de control',
-          value: 'DTE-03-M001P001-000000123',
-        ),
-        ExtractedField(
-          label: 'Sello de recepcion',
-          value: '2026A8CDEF1234567890',
-        ),
-      ],
-      actions: [
-        ScanAction(label: 'Guardar imagen/PDF', icon: 'cloud', tone: 'blue'),
-        ScanAction(
-          label: 'Clasificar compra/gasto',
-          icon: 'catalog',
-          tone: 'purple',
-        ),
-        ScanAction(
-          label: 'Asociar a proveedor',
-          icon: 'client',
-          tone: 'purple',
-        ),
-        ScanAction(label: 'Validar QR DTE', icon: 'qr', tone: 'purple'),
-        ScanAction(
-          label: 'Crear proveedor desde factura',
-          icon: 'client',
-          tone: 'purple',
-        ),
-        ScanAction(
-          label: 'Subir respaldo al panel web',
-          icon: 'cloud',
-          tone: 'blue',
-        ),
-      ],
+  final ApiClient _apiClient;
+
+  Future<PagedResult<ScanDocument>> list(ScanFilters filters) {
+    return _apiClient.getData<PagedResult<ScanDocument>>(
+      ApiEndpoints.scanAiDocumentos,
+      queryParameters: filters.toQuery(),
+      fromJson: (json) => PagedResult.fromJson(json, ScanDocument.fromJson),
+    );
+  }
+
+  Future<ScanDocument> get(int id) {
+    return _apiClient.getData<ScanDocument>(
+      ApiEndpoints.scanAiDocumento(id),
+      fromJson: ScanDocument.fromJson,
+    );
+  }
+
+  Future<ScanDocument> upload(ScanUploadRequest request) {
+    return _apiClient.postData<ScanDocument>(
+      ApiEndpoints.scanAiDocumentos,
+      data: request.toJson(),
+      fromJson: ScanDocument.fromJson,
+    );
+  }
+
+  Future<ScanDocument> correctFields(int id, ScanFields fields) {
+    return _apiClient.putData<ScanDocument>(
+      ApiEndpoints.scanAiCampos(id),
+      data: fields.toCorrectionJson(),
+      fromJson: ScanDocument.fromJson,
+    );
+  }
+
+  Future<ScanDocument> registerExpense(int id, ScanFields fields) {
+    return _apiClient.postData<ScanDocument>(
+      ApiEndpoints.scanAiRegistrarGasto(id),
+      data: fields.toGastoJson(),
+      fromJson: ScanDocument.fromJson,
+    );
+  }
+
+  Future<ScanDocument> registerPurchase(int id, ScanFields fields) {
+    return _apiClient.postData<ScanDocument>(
+      ApiEndpoints.scanAiRegistrarCompra(id),
+      data: fields.toCompraJson(),
+      fromJson: ScanDocument.fromJson,
+    );
+  }
+
+  Future<ScanDocument> registerReceivedDte(int id, ScanFields fields) {
+    return _apiClient.postData<ScanDocument>(
+      ApiEndpoints.scanAiRegistrarDteRecibido(id),
+      data: fields.toDteRecibidoJson(),
+      fromJson: ScanDocument.fromJson,
+    );
+  }
+
+  Future<void> reject(int id, String reason) {
+    return _apiClient.postVoid(
+      ApiEndpoints.scanAiRechazar(id),
+      data: {'motivo': reason},
     );
   }
 }
