@@ -1,14 +1,14 @@
 # NeoCloud Mobile Android
 
-Aplicacion Flutter para Android telefono y tablet. Esta beta demo permite
-mostrar el flujo comercial principal de NeoCloud Mobile: iniciar sesion, emitir
-DTE, consultar documentos, administrar clientes/productos, revisar configuracion
-DTE y dar seguimiento a cobros.
+App Flutter para Android telefono y tablet. Esta demo beta muestra el flujo
+comercial principal de NeoCloud Mobile: iniciar sesion, emitir DTE, consultar
+documentos, vender por POS, cobrar, escanear compras y revisar alertas.
 
 ## Estado actual
 
 - Plataforma: Android 9 o superior.
-- API conectada: `https://excluded-supplements-anyway-broken.trycloudflare.com`
+- API conectada: `https://unknown-virgin-beyond-rom.trycloudflare.com`
+- App: `NeoCloud Mobile`.
 - Arquitectura: features simples con UI, ViewModel, Repository y Models.
 - Estado global: Riverpod 3.
 
@@ -16,36 +16,65 @@ DTE y dar seguimiento a cobros.
 
 ### Sprint 0: Fundaciones API y sesion
 
-La app ya se conecta al backend real, maneja sesion con token, refresca credenciales
-y valida el usuario activo al abrir. Tambien incluye health check para confirmar si
-la API esta disponible.
+Conexion real al backend, login, token seguro, refresh automatico, usuario activo,
+permisos en memoria y health check.
 
 ### Sprint 1: Demo DTE minima funcional
 
-La app permite buscar cliente y producto, armar una factura, emitirla contra el
-backend y ver el resultado final. Tambien permite descargar y compartir el PDF.
+Busqueda de cliente/producto, factura rapida, emision real, estado final, numero de
+control, sello recibido, PDF y compartir.
 
 ### Sprint 2: Gestion completa de DTE
 
-Se agrego consulta de documentos emitidos con filtros, detalle, descarga de PDF/JSON
-y reenvio por correo. Tambien se muestran estados de carga, error y documentos vacios.
+Consulta paginada de documentos, filtros, detalle, PDF/JSON, reenvio por correo y
+manejo visual de errores o rechazos.
 
 ### Sprint 3: Clientes y productos reales
 
-Se agrego gestion ligera de clientes y productos, creacion rapida durante facturacion,
-verificacion de NIT/DUI y busqueda de productos por codigo de barras.
+CRUD ligero de clientes y productos, cliente rapido en facturacion, verificacion de
+NIT/DUI y lectura de codigo de barras.
 
 ### Sprint 4: Configuracion DTE movil
 
-La app muestra si la empresa esta lista para emitir: credenciales MH, establecimiento,
-punto de venta, certificado y ambiente activo. Tambien permite subir certificado y
-probar conexion con MH sin exponer secretos.
+Checklist de empresa lista para emitir: MH, establecimiento, punto de venta,
+certificado, ambiente activo y prueba de conexion.
 
-### Sprint 5: Dashboard y cobros para demo comercial
+### Sprint 5: Dashboard y cobros
 
-El dashboard ya muestra informacion real de la empresa. Cobros incluye resumen,
-pendientes, vencidas, saldo por cliente, registro de pago, generacion de QR y compartir
-enlace/QR.
+Dashboard real, resumen de cartera, pendientes/vencidas, saldo por cliente, registro
+de pago, QR de cobro y compartir enlace.
+
+### Sprint 6: Compartir DTE completo
+
+Acciones compartidas para PDF, JSON, correo y WhatsApp desde emision y consulta DTE,
+respetando permisos.
+
+### Sprint 7: Notificaciones
+
+Centro de alertas, badge en dashboard, marcar como leida, resolver alertas,
+preferencias y base lista para FCM.
+
+### Sprint 8: NeoScan y DTE recibidos
+
+Bandeja de documentos recibidos, subir imagen/PDF, tomar foto con camara trasera,
+corregir datos extraidos y registrar gasto, compra o DTE recibido.
+
+### Sprint 9: Ventas sin DTE / POS
+
+Venta rapida tradicional con carrito, busqueda de producto, ticket, compartir por
+WhatsApp/correo y opcion para convertir a DTE.
+
+### Sprint 10: Caja POS
+
+Apertura de caja, fondo inicial, turno activo, resumen de ventas, cierre con efectivo
+contado y diferencia.
+
+## Actualizaciones recientes
+
+- POS quedo visible en la barra inferior.
+- Mas abre un menu lateral derecho con opciones administrativas.
+- NeoScan ahora puede tomar foto directamente desde la app.
+- Los tickets POS se pueden ver en la app, descargar y compartir.
 
 ## Estructura principal
 
@@ -62,8 +91,11 @@ lib/
 El APK de demo se genera como:
 
 ```text
-NeoCloud-Mobile-DEMO-BETA.apk
+NeoCloud Mobile.apk
 ```
 
-Esta version esta pensada para pruebas comerciales en dispositivos Android 9 o
-superiores.
+Comando manual recomendado:
+
+```powershell
+flutter build apk --profile --target-platform android-arm64; Copy-Item -LiteralPath "build\app\outputs\flutter-apk\app-profile.apk" -Destination "build\app\outputs\flutter-apk\NeoCloud Mobile.apk" -Force
+```
